@@ -1,0 +1,11 @@
+(ocamllex
+ (modules lexer))
+(menhir
+ (modules parser)
+ (flags --dump)
+ (infer true))
+(executable
+ (name miniturtle)
+ (promote (until-clean))
+ (flags ())
+ (libraries graphics))
