@@ -1,5 +1,5 @@
 
-fun foo() : div ()
+fun foo() : <div> ()
   while {False} {}
 
 fun main() : <div> ()

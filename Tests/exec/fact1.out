@@ -8,5 +8,3 @@
 40320
 362880
 3628800
-test.koka(2, 7): type warning: n shadows an earlier local definition or parameter
-

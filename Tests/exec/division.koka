@@ -1,10 +1,17 @@
 
-// attention, la division de Koka
-// 1. est la division Euclidienne
-// 2. est totale
+// cf https://koka-lang.github.io/koka/doc/std_core_int.html#divmod
+
+fun division(a: int, b: int)
+  println( a /  b)
+  println( a %  b)
+  println(~a /  b)
+  println(~a %  b)
+  println( a / ~b)
+  println( a % ~b)
+  println(~a / ~b)
+  println(~a % ~b)
 
 fun main()
-  for (-3, 3) fn(a: int)
-    for (-3, 3) fn(b: int)
-      println(a / b)
-      println(a % b)
+  division(8, 3)
+  division(5, 0)
+

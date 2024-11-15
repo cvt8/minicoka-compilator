@@ -1,2 +1,2 @@
 fun main()
-  repeat(10) fn (x:int) ()
+  repeat()
