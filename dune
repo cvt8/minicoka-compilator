@@ -5,7 +5,7 @@
  (flags --dump)
  (infer true))
 (executable
- (name miniturtle)
+ (name kokac)
  (promote (until-clean))
  (flags ())
  (libraries graphics))

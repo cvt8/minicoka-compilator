@@ -18,7 +18,6 @@ type stmt =
   | Spendown
   | Sforward of expr
   | Sturn    of expr (* tourne à gauche *)
-  | Scolor   of Turtle.color
   | Sif      of expr * stmt * stmt
   | Srepeat  of expr * stmt
   | Sblock   of stmt list

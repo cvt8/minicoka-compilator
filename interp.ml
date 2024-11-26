@@ -44,8 +44,6 @@ let rec stmt env = function
       Turtle.forward (expr env e)
   | Sturn e ->
       Turtle.turn_left (expr env e)
-  | Scolor c ->
-      Turtle.set_color c
   | Sif (e, s1, s2) ->
       stmt env (if expr env e <> 0 then s1 else s2)
   | Srepeat (e, s) ->

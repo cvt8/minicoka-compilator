@@ -58,8 +58,6 @@ stmt:
     { Sturn e }
 | TURNRIGHT e = expr
     { Sturn (neg e) }
-| COLOR c = color
-    { Scolor c }
 | id = IDENT LPAREN actuals = separated_list(COMMA, expr) RPAREN
     { Scall (id, actuals) }
 | IF e = expr s = stmt
