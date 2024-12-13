@@ -1,5 +1,5 @@
 
-(* Fichier principal de l'interprète mini-Turtle *)
+(* Fichier principal de l'interprète mini-Koka *)
 
 open Format
 open Lexing
@@ -17,7 +17,7 @@ let options =
   ["--parse-only", Arg.Set parse_only,
    "  Pour ne faire uniquement que la phase d'analyse syntaxique"]
 
-let usage = "usage: mini-turtle [option] file.logo"
+let usage = "usage: koka [option] file.koka"
 
 (* localise une erreur en indiquant la ligne et la colonne *)
 let localisation pos =
@@ -32,8 +32,8 @@ let () =
   (* On vérifie que le nom du fichier source a bien été indiqué *)
   if !ifile="" then begin eprintf "Aucun fichier à compiler\n@?"; exit 1 end;
 
-  (* Ce fichier doit avoir l'extension .logo *)
-  if not (Filename.check_suffix !ifile ".logo") then begin
+  (* Ce fichier doit avoir l'extension .koka *)
+  if not (Filename.check_suffix !ifile ".koka") then begin
     eprintf "Le fichier d'entrée doit avoir l'extension .logo\n@?";
     Arg.usage options usage;
     exit 1
