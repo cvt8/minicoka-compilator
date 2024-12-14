@@ -138,10 +138,18 @@ rule token = parse
   | "||"                 { OROR }
   | '~'                  { TILDE }
   | '!'                  { BANG }
+  | '='                  { EQ }
+  | "then"               { THEN }
+  | "True"               { TRUE }
+  | "False"              { FALSE }
   | "elif"               { ELIF }
   | "else"               { ELSE }
   | "fn"                 { FN }
   | "fun"                { FUN }
+  | "return"             { RETURN }
+  | "val"                { VAL }
+  | "var"                { VAR }
+  | "->"                 { ARROW }
   | "(*"                  { comment lexbuf }
   | integer as s          { CST (int_of_string s) }
   | string as s           { STRING s }

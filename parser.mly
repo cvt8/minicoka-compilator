@@ -3,25 +3,29 @@
 %{
   open Ast
 
-  let neg e = Ebinop (Sub, Econst 0, e)
+ (* let neg e = Ebinop (Sub, Econst 0, e)
+    let not e = Eunop (Not, e) *)
+
+  let block stmt = Sblock stmt
 %}
 
 %token <int> CST
 %token <string> IDENT
 %token <string> STRING
-%token <string> LOWER
 %token <string> UPPER
 %token <string> DIGIT
 %token <string> OTHER
 %token <string> SPACE
-%token COMMA BEGIN END DEF
+%token COMMA BEGIN END
 %token LPAREN RPAREN
 %token PLUS MINUS TIMES DIV
-%token IF ELSE REPEAT ELIF FORWARD TURNLEFT TURNRIGHT
+%token IF ELSE REPEAT ELIF THEN FN VAL RETURN VAR
 %token EOF
 %token COLON
 %token TILDE BANG OROR ANDAND PLUSPLUS ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER DOT FUN
-%token LBRACKET RBRACKET SEMI
+%token LBRACKET RBRACKET SEMI ARROW
+%token EQ
+%token TRUE FALSE
 
 /* Les priorités et associativités des tokens */
 
@@ -53,7 +57,13 @@
 
 %%
 
+True:
+    | TRUE
+        { true }
 
+False:
+    | FALSE
+        { false }
 
 ident:
     | IDENT
@@ -70,9 +80,16 @@ decl:
 ;
 
 funbody:
-    | LPAREN param* RPAREN annot = annot_opt expr = expr
-    { (param, annot, expr) }
+    | LPAREN param* COMMA RPAREN annot? expr
+        { (param, annot, expr) }
+;
 
+
+
+block:
+| BEGIN SEMI* LPAREN stmt SEMI+ RPAREN* END
+        { stmt }
+;
 
 param:
 | IDENT COLON param_type
@@ -85,8 +102,8 @@ annot:
 ;
 
 result:
-| LPAREN LESS ident = separated_list(COMMA, IDENT) GREATER RPAREN param_type = type_opt
-        { (ident, type) }
+| LPAREN LESS IDENT* COMMA GREATER RPAREN? param_type
+        { (IDENT, param_type) }
 ;
 
 param_type:
@@ -99,8 +116,8 @@ param_type:
 ;
 
 atype:
-| IDENT LT atype GT
-        { ATypeApp(IDENT, atype) }
+| IDENT LPAREN LESS param_type = separated_list(COMMA, atype) GREATER RPAREN
+        { ATypeApp (IDENT, param_type) }
     | LPAREN atype RPAREN
         { ATypeParen atype }
     | LPAREN RPAREN
@@ -108,7 +125,7 @@ atype:
 ;
 
 atom:
-| True
+    | True
         { Econst (true) }
     | False
         { Econst (false) }
@@ -132,88 +149,16 @@ atom:
         { Earray (expr_list) }
 ;
 
+
 expr:
-| block
+    | block
         { Eblock block }
     | bexpr
         { bexpr }
-;
-
-bexpr:
-| atom
-        { atom }
-    | TILDE bexpr
-        { Eunop (Not, bexpr) }
-    | BANG bexpr
-        { Eunop (Neg, bexpr) }
-    | bexpr binop bexpr
-        { Ebinop (binop, bexpr, bexpr) }
-    | IDENT ASSIGN bexpr
-        { Sassign (IDENT, bexpr) }
     | IF bexpr THEN expr ELSE expr
         { Sif (bexpr, expr, expr, []) }
-    | IF bexpr THEN expr elif* ELSE expr
-        { Sif (bexpr, expr, elif, expr) }
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, [], None) }
-    | FUN funbody
-        { Sfun funbody }
-    | RETURN expr
-        { Sreturn expr }
-;
-
-block:
-| BEGIN stmt_list = stmt* END
-        { Sblock stmt_list }
-;
-
-stmt:
-| bexpr
-        { bexpr }
-    | VAL IDENT EQ expr
-        { Sval (IDENT, expr) }
-    | VAL IDENT EQEQ expr
-        { Svar (IDENT, expr) }
-    | IF bexpr THEN stmt
-        { Sif (bexpr, stmt, Sblock [], None) }
-    | IF bexpr THEN stmt ELSE stmt
-        { Sif (bexpr, stmt, stmt, None) }
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, [], None) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Scall (atom, expr_list) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
-        { Scall (Ecall (atom, IDENT, expr_list), []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
-        { Scall (atom, expr_list @ [Eblock block]) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
-        { Scall (Ecall (atom, IDENT, expr_list @ [Eblock block]), []) }
-    | atom block
-        { Sblock (block) }
-;
-
-binop:
-| EQEQ | NOTEQ | LESSEQ | GREATEREQ | LESS | GREATER | PLUS | MINUS | TIMES | DIV | ANDAND | OROR | PLUSPLUS
-;
-
-/* Sucre syntaxique */
-
-atom:
-| atom DOT IDENT
-        { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Ecall (atom, expr_list) }
-    | atom FN funbody
-        { Efun (funbody) }
-    | atom block
-        { Eblock (block) }
-;
-
-expr:
-| IF bexpr THEN expr ELSE expr
-        { Sif (bexpr, expr, expr, []) }
-    | IF bexpr THEN expr elif* ELSE expr
-        { Sif (bexpr, expr, elif, expr) }
+    | IF bexpr THEN expr ELIF* ELSE expr
+        { Sif (bexpr, expr, ELIF, expr) }
     | IF bexpr RETURN expr
         { Sif (bexpr, Sreturn expr, [], None) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
@@ -228,13 +173,43 @@ expr:
         { Eblock (block) }
 ;
 
+bexpr:
+    | atom
+        { atom }
+    | TILDE bexpr
+        { Eunop (Not, bexpr) }
+    | BANG bexpr
+        { Eunop (Neg, bexpr) }
+    | bexpr binop bexpr
+        { Ebinop (binop, bexpr, bexpr) }
+    | IDENT ASSIGN bexpr
+        { Sassign (IDENT, bexpr) }
+    | IF bexpr THEN expr ELSE expr
+        { Sif (bexpr, expr, expr, []) }
+    | IF bexpr THEN expr ELIF* ELSE expr
+        { Sif (bexpr, expr, ELIF, expr) }
+    | IF bexpr RETURN expr
+        { Sif (bexpr, Sreturn expr, [], None) }
+    | FUN funbody
+        { Sfun funbody }
+    | RETURN expr
+        { Sreturn expr }
+;
+
+
 stmt:
-| IF bexpr THEN stmt
+    | bexpr
+        { bexpr }
+    | VAL IDENT EQ expr
+        { Sval (IDENT, expr) }
+    | VAL IDENT EQEQ expr
+        { Svar (IDENT, expr) }
+    | IF bexpr THEN stmt
         { Sif (bexpr, stmt, Sblock [], None) }
     | IF bexpr THEN stmt ELSE stmt
         { Sif (bexpr, stmt, stmt, None) }
     | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, [], None) }
+        { Sif (bexpr, Ereturn expr, [], None) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
         { Scall (atom, expr_list) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
@@ -244,11 +219,10 @@ stmt:
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
         { Scall (Ecall (atom, expr_list @ [Eblock block]), IDENT, []) }
     | atom block
-        { Sblock (block) }
+        { Sblock block }
 ;
 
-def:
-| DEF IDENT LPAREN formals = separated_list(COMMA, IDENT) RPAREN body = stmt        { { name = IDENT;
-            formals = formals;
-            body = body } }
+binop:
+| EQEQ | NOTEQ | LESSEQ | GREATEREQ | LESS | GREATER | PLUS | MINUS | TIMES | DIV | ANDAND | OROR | PLUSPLUS
+    { binop }
 ;
