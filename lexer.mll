@@ -1,4 +1,4 @@
-(* Analyseur lexical pour mini-Koka *)
+(* Analyseur lexical pour Petit Koka *)
 
 {
   open Lexing
@@ -9,7 +9,7 @@
   (* tables des mots-clés *)
   let kwd_tbl =
     ["if", IF;
-    "elif", ELIF;   
+     "elif", ELIF;   
      "else", ELSE;
      "fn", FN;
      "fun", FUN;
@@ -31,78 +31,123 @@
 let lower = ['a'-'z'] | '_'
 let upper = ['A'-'Z']
 let digit = ['0'-'9']
-let other = lower | upper | digit | '_'
-let ident = lower (other | "'")*
+let other = lower | upper | digit | '-'
+let ident = lower (other | "'")* ('-' (lower | digit) (other | "'")*)*
 let space = [' ' '\t' '\r']
-let ident = lower (other | "'")* ('-' (lower | digit) (other | "'")*)* (*un tiret (-) dans un identificateur doit être précédé d’une lettre ou d’un chiffre et
-suivi d’une lettre s’il n’est pas en dernière position. *)
 
-let integer = -?['0' | '1'-'9' + digit*]
+let integer = '-'? ('0' | ['1'-'9'] digit*)
 let string = "\"" ([^ '"' '\\' '\n'] | "\\\"" | "\\\\" | "\\t" | "\\n")* "\"" 
+
+(* Liste des lexèmes de fin de continuation *)
+let fin_continuation = [
+  PLUS; MINUS; STAR; SLASH; PERCENT;
+  PLUSPLUS; LT; LEQ; GT; GEQ;
+  EQEQ; NEQ; AND; OR; LPAREN; LBRACE
+]
+
+(* Liste des lexèmes de début de continuation *)
+let debut_continuation = [
+  PLUS; MINUS; STAR; SLASH; PERCENT;
+  PLUSPLUS; LT; LEQ; GT; GEQ;
+  EQEQ; NEQ; AND; OR; THEN; ELSE; ELIF;
+  RPAREN; RBRACE; COMMA; ARROW; LBRACE;
+  EQ; DOT; COLON_EQ
+]
+
+(* Fonction pour vérifier si un lexème est une fin de continuation *)
+let is_fin_continuation lexeme =
+  List.mem lexeme fin_continuation
+
+(* Fonction pour vérifier si un lexème est un début de continuation *)
+let is_debut_continuation lexeme =
+  List.mem lexeme debut_continuation
+
+(*let indentation_stack = Stack.create () *)
+
 
 
 rule token = parse
-  | "//" [^ '\n']* '\n'
-  | '\n'    { new_line lexbuf; token lexbuf }
-  | space+  { token lexbuf }
-  | ident as id { id_or_kwd id }
-  | '+'     { PLUS }
-  | '-'     { MINUS }
-  | '*'     { TIMES }
-  | '/'     { DIV }
-  | '('     { LPAREN }
-  | ')'     { RPAREN }
-  | '{'     { BEGIN }
-  | '}'     { END }
-  | ','     { COMMA }
-  | "(*"    { comment lexbuf }
-  | integer as s { CST (int_of_string s) }
-  | "//" [^ '\n']* eof
-  | eof     { EOF }
-  | _ as c  { raise (Lexing_error ("illegal character: " ^ String.make 1 c)) }
+  | "//" [^ '\n']* '\n' { new_line lexbuf; token lexbuf }
+  | space+                { token lexbuf }
+  | '\n'                 { action_retour_chariot (); token lexbuf }
+  | ident as id           { id_or_kwd id }
+  | '+'                   { PLUS }
+  | '-'                   { MINUS }
+  | '*'                   { TIMES }
+  | '.'                   { DOT }
+  | '/'                   { DIV }
+  | ':'                   { COLON }
+  | '('                   { LPAREN }
+  | ')'                   { RPAREN }
+  | '{'                   { BEGIN }
+  | '}'                   { END }
+  | ','                   { COMMA }
+  | ';'                   { SEMI }
+  | "++"                 { PLUSPLUS }
+  | '%'                   { MOD }
+  | "<="                 { LESSEQ }
+  | ">="                 { GREATEREQ }
+  | "=="                 { EQEQ }
+  | ":="                 { ASSIGN }
+  | "!="                 { NOTEQ }
+  | "<"                  { LESS }
+  | ">"                  { GREATER }
+  | "&&"                 { ANDAND }
+  | "||"                 { OROR }
+  | '~'                  { TILDE }
+  | '!'                  { BANG }
+  | "(*"                  { comment lexbuf }
+  | integer as s          { CST (int_of_string s) }
+  | string as s           { STRING s }
+  | eof                   { EOF }
+  | _ as c                { raise (Lexing_error ("illegal character: " ^ String.make 1 c)) }
 
-(* note : les commentaires ne sont pas imbriqués en Coka *)
 and comment = parse
-  | '\n'    { new_line lexbuf; comment lexbuf }
-  | "/*"       { comment lexbuf }
-  | "*/"       { token lexbuf }
-  | "//" [^ '\n']* '\n' { comment lexbuf }
-  | eof     { raise (Lexing_error ("unterminated comment")) }
+  | "*)"                  { token lexbuf }
+  | [^ '*']+              { comment lexbuf }
+  | '*' [^ '/']*          { comment lexbuf }
+  | eof                   { raise (Lexing_error "unterminated comment") }
 
 
-(*Indentation significative *)
-(*Algorithme de lecture des lexèmes*)
-(* Définition de fin de continuation  *)
+(* Fonction pour gérer les retours à la ligne et l'indentation *)
 
-let fin_continuation = ['+'|'-'|'*'|'/'|'%'| '++' | '<' | '>' | '>=' | '==' | '!=' | '&&' | '||' | '<=' | '>' | '(' | '{' | ',']
+let rec action_retour_chariot lexbuf last indentation_stack = 
+  let next = token lexbuf in  (* Lire le prochain lexème *)
+  let c = lexeme_start_p lexbuf.pos_cnum in  (* Obtenir la colonne actuelle *)
+  let m = Stack.top indentation_stack in  (* Récupérer la colonne au sommet de la pile *)
+  
+  (* Si la colonne c est plus grande que m (nouveau bloc d'indentation) *)
+  if c > m then (
+    (* Si le dernier lexème n'est pas une fin de continuation et que next n'est pas un début de continuation, on émet { ; *)
+    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
+      emit LBRACE;
 
+    (* Si le dernier lexème émis est {, empiler la colonne c dans la pile d'indentation *)
+    if last = LBRACE then
+      Stack.push c indentation_stack;
 
-(* Définition de début de continuation  *)
+    (* Émettre le lexème suivant *)
+    emit next
+  ) else (
+    (* Si la colonne c est inférieure ou égale à m, on doit dépiler la pile d'indentation *)
+    while c < m do
+      Stack.pop indentation_stack;
+      let m = Stack.top indentation_stack in  (* Mettre à jour m avec la nouvelle valeur du sommet de la pile *)
 
-let debut_continuation = ['+'; '-'; '*'; '/'; '%'; "++"; '<'; "<="; '>'; ">="; "=="; "!="; "&&"; "||"; "then"; "else"; "elif"; ')'; '}'; ','; "->"; '{'; '='; '.'; ":="]
+      (* Si next n'est pas RBRACE, on émet ; *)
+      if next <> RBRACE then emit SEMI;
 
-(*Algorithme déterminant si une action doit être effectuée lors d'un retour charoiot*)
+      (* Émettre } pour fermer le bloc *)
+      emit RBRACE
+    done;
 
-let rec action_retour_chariot () = 
-  let rec action_retour_chariot_aux () = 
-      let next = token lexbuf in
-      let c = lexeme_start_p lexbuf.pos_cnum in
-      let m = Stack.top indentation_stack in
-      if c > m then (
-        if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-          emit LBRACE;
-        if last = LBRACE then
-          Stack.push c indentation_stack;
-        emit next
-      ) else (
-      while c < m do
-        Stack.pop indentation_stack;
-        let m = Stack.top indentation_stack in
-        if next <> RBRACE then emit SEMI;
-        emit RBRACE
-      done;
-      if c > m then failwith "Indentation error";
-      if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-        emit SEMI;
-      emit next
-      )
+    (* Si c est plus grand que m, échouer avec une erreur d'indentation *)
+    if c > m then failwith "Indentation error";
+
+    (* Si last n'est pas une fin de continuation et next n'est pas un début de continuation, émettre ; *)
+    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
+      emit SEMI;
+
+    (* Émettre le lexème suivant *)
+    emit next
+  )

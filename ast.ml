@@ -1,40 +1,31 @@
-
 (* Syntaxe abstraite pour mini-Coka
 *)
 
 (* expressions entières *)
 
-type binop = Add | Sub | Mul | Div
+(* ast.ml *)
 
 type expr =
   | Econst of int
-  | Evar   of string
+  | Evar of string
+  | Ebool of bool
   | Ebinop of binop * expr * expr
+  | Enot of expr
+  | Ecall of string * expr list
 
-(* instructions *)
+and binop = 
+  | Add | Sub | Mul | Div | Eq | Neq | Lt | Gt | And | Or
 
 type stmt =
-  | Spenup
-  | Spendown
-  | Sforward of expr
-  | Sturn    of expr (* tourne à gauche *)
-  | Sif      of expr * stmt * stmt
-  | Srepeat  of expr * stmt
-  | Sblock   of stmt list
-  | Scall    of string * expr list
+  | Sval of string * expr
+  | Svar of string * expr
+  | Sexpr of expr
+  | Sif of expr * stmt * stmt
+  | Sreturn of expr
+  | Scall of string * expr list
+  | Sblock of stmt list
 
-(* définition de procédure *)
+type program = { defs: decl list }
 
-type def = {
-  name    : string;
-  formals : string list; (* arguments *)
-  body    : stmt; }
-
-(* programme *)
-
-type program = {
-  defs : def list;
-  main : stmt; }
-
-
+and decl = { name: string; body: stmt }
 

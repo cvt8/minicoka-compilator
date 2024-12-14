@@ -1,6 +1,4 @@
 
-
-
 (** Analyse syntaxique élémentaire d'expressions arithmétiques
     formées de constantes, addition, multiplication et parenthèses. *)
 

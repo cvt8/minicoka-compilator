@@ -1,74 +1,38 @@
-
-(* interpréteur de mini-Turtle *)
+(* Interpréteur de mini Cola *)
 
 open Ast
 
-exception Error of string
+let rec eval_expr env = function
+  | Econst c -> c
+  | Evar v -> (try Hashtbl.find env v with Not_found -> failwith ("Variable " ^ v ^ " non définie"))
+  | Ebool b -> if b then 1 else 0
+  | Ebinop (op, e1, e2) ->
+      let v1 = eval_expr env e1 in
+      let v2 = eval_expr env e2 in
+      (match op with
+      | Add -> v1 + v2
+      | Sub -> v1 - v2
+      | Mul -> v1 * v2
+      | Div -> if v2 != 0 then v1 / v2 else failwith "Division par zéro"
+      | Eq -> if v1 = v2 then 1 else 0
+      | Neq -> if v1 != v2 then 1 else 0
+      | Lt -> if v1 < v2 then 1 else 0
+      | Gt -> if v1 > v2 then 1 else 0
+      | And -> if v1 != 0 && v2 != 0 then 1 else 0
+      | Or -> if v1 != 0 || v2 != 0 then 1 else 0)
+  | Enot e -> if eval_expr env e = 0 then 1 else 0
+  | Ecall (name, args) -> failwith "Appels de fonctions non implémentés"
 
-let unbound_var s = raise (Error ("unbound variable " ^ s))
-let unbound_procedure f = raise (Error ("unbound procedure " ^ f))
-let bad_arity x = raise (Error ("bad arity for " ^ x))
+let rec exec_stmt env = function
+  | Sval (id, e) -> let value = eval_expr env e in Hashtbl.add env id value
+  | Svar (id, e) -> let value = eval_expr env e in Hashtbl.add env id value
+  | Sexpr e -> eval_expr env e |> ignore
+  | Sif (cond, s1, s2) ->
+      if eval_expr env cond != 0 then exec_stmt env s1 else exec_stmt env s2
+  | Sreturn e -> eval_expr env e
+  | Scall (fn, args) -> failwith "Appels de fonctions non implémentés"
+  | Sblock stmts -> List.iter (exec_stmt env) stmts
 
-(* table des variables globales *)
-let globals = Hashtbl.create 17
-
-(* structure de données pour les variables locales *)
-module Smap = Map.Make(String)
-
-(* expressions arithmétiques *)
-
-let binop = function
-  | Add -> (+)
-  | Sub -> (-)
-  | Mul -> ( * ) (* :-) *)
-  | Div -> (/)
-
-let rec expr env = function
-  | Econst n -> n
-  | Evar x when Smap.mem x env -> Smap.find x env
-  | Evar x when Hashtbl.mem globals x -> Hashtbl.find globals x
-  | Evar x -> unbound_var x
-  | Ebinop (op, e1, e2) -> binop op (expr env e1) (expr env e2)
-
-(* table des procédures *)
-let procs = Hashtbl.create 17
-
-(* instructions *)
-
-let rec stmt env = function
-  | Spenup ->
-      Turtle.pen_up ()
-  | Spendown ->
-      Turtle.pen_down ()
-  | Sforward e ->
-      Turtle.forward (expr env e)
-  | Sturn e ->
-      Turtle.turn_left (expr env e)
-  | Sif (e, s1, s2) ->
-      stmt env (if expr env e <> 0 then s1 else s2)
-  | Srepeat (e, s) ->
-      for i = 1 to expr env e do stmt env s done
-  | Sblock sl ->
-      List.iter (stmt env) sl
-  | Scall (x, el) ->
-      let p =
-	try Hashtbl.find procs x with Not_found -> unbound_procedure x
-      in
-      let env' =
-	try
-	  List.fold_left2 (fun env' x e -> Smap.add x (expr env e) env')
-	    Smap.empty p.formals el
-	with Invalid_argument _ -> bad_arity x
-      in
-      stmt env' p.body
-
-let prog p =
-  List.iter (fun p -> Hashtbl.add procs p.name p) p.defs;
-  stmt Smap.empty p.main;
-  ignore (Graphics.read_key ());
-  Graphics.close_graph ()
-
-
-
-
-
+let exec_program prog =
+  let env = Hashtbl.create 10 in
+  List.iter (fun { name; body } -> exec_stmt env body) prog.defs
