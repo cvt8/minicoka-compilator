@@ -1,7 +1,9 @@
 (* Interpréteur de mini Cola *)
 
+
 open Ast
 
+(* Evaluate an expression *)
 let rec eval_expr env = function
   | Econst c -> c
   | Evar v -> (try Hashtbl.find env v with Not_found -> failwith ("Variable " ^ v ^ " non définie"))
@@ -23,6 +25,7 @@ let rec eval_expr env = function
   | Enot e -> if eval_expr env e = 0 then 1 else 0
   | Ecall (name, args) -> failwith "Appels de fonctions non implémentés"
 
+(* Execute a statement *)
 let rec exec_stmt env = function
   | Sval (id, e) -> let value = eval_expr env e in Hashtbl.add env id value
   | Svar (id, e) -> let value = eval_expr env e in Hashtbl.add env id value
@@ -33,6 +36,7 @@ let rec exec_stmt env = function
   | Scall (fn, args) -> failwith "Appels de fonctions non implémentés"
   | Sblock stmts -> List.iter (exec_stmt env) stmts
 
+(* Execute a program *)
 let exec_program prog =
   let env = Hashtbl.create 10 in
   List.iter (fun { name; body } -> exec_stmt env body) prog.defs
