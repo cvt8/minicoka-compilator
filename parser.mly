@@ -51,7 +51,7 @@
 %type <Ast.annot> annot 
 %type <Ast.result> result 
 %type <Ast.atype> atype
-
+%type <Ast.elif> elif
 %%
 
 (* Les règles de la grammaire *)
@@ -211,12 +211,12 @@ stmt:
         { Sval (expr) }
     | VAR IDENT ASSIGN expr
         { Svar (expr) } 
-    | IF bexpr THEN stmt
+    (*| IF bexpr THEN stmt
         { Sif (bexpr, stmt, [Sblock []]) }
     | IF bexpr THEN stmt ELSE stmt
         { Sif (bexpr, stmt, [stmt]) }
     | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, []) } 
+        { Sif (bexpr, Sreturn expr, []) } *)
     (*| atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
         { Scall (atom, expr_list) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
@@ -239,8 +239,8 @@ binop:
 ;
 
 elif:
-    | ELIF bexpr THEN stmt
-    { Sif (bexpr, stmt, [], None) }
-    | ELIF bexpr THEN stmt ELSE stmt
-    { Sif (bexpr, stmt, [stmt], None) }
-; 
+    | ELSE IF bexpr THEN stmt
+        { Sif (bexpr, stmt, [], None) }
+    | ELSE IF bexpr THEN stmt ELSE stmt
+        { Sif (bexpr, stmt, [stmt], None) }
+;

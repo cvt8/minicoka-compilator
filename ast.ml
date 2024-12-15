@@ -20,10 +20,6 @@ type binop =
   | And
   | Or
 
-and block =
-    | Bstmt of stmt
-    | Bbegin of stmt list
-
 and expr =
   | Econst of bool
   | Estring of string
@@ -38,6 +34,10 @@ and expr =
   | Ereturn of expr
   | Edot of expr * ident
   | EblockExpr of expr * block
+
+and block =
+    | Bstmt of stmt
+    | Bbegin of stmt list
 
 and bexpr =
   | BAtom of atom
@@ -81,15 +81,16 @@ and atype =
     | AUnit
 
 and stmt =
-  | Sval of ident * expr
-  | Svar of ident * expr
-  | Sassign of ident * expr
-  | Sif of expr * block * block option
+  | Sbexpr of bexpr
+  | Sval of expr
+  | Svar of expr
+  (*| Sassign of ident * expr
+  | Sif of bexpr * block * block option
   | Swhile of expr * block
   | Sreturn of expr
   | Scall of ident * expr list
   | Sblock of block
-  | Sparam of param  
+  | Sparam of param  *)
 
 
 and decl =
@@ -101,3 +102,6 @@ and file = decl list
 and annot = result
 
 and result = ident list * param_type option
+
+and elif = 
+  | Elif of bexpr * expr * block option
