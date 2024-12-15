@@ -16,6 +16,10 @@ type expr =
   | Earray of expr list
   | Eif of expr * expr * expr list * expr option
   | Ereturn of expr
+  | Edot of expr * ident  (* e . x *)
+  | Efn of expr * funbody  (* e fn f *)
+  | EfnCall of expr * expr list * funbody  (* e(e1, ..., en) fn f *)
+  | EblockExpr of expr * block  (* e { b } *)
 
 and unop =
   | Not
@@ -57,9 +61,6 @@ and bexpr =
   | Bcall of bexpr * ident * expr list
   | Bif of bexpr * expr * expr list * expr option
 
-and block = stmt list
-
-
 and funbody = (param list * annot option * expr)
 
 and param = ident * param_type
@@ -86,9 +87,8 @@ and stmt =
   | Sblock of stmt list
   | Scall of expr * expr list
   | Sbexpr of bexpr
+  | Selif of bexpr * stmt * stmt list  (* ... elif ... *)
 
+and block = stmt list
 
 and file = stmt list
-
-
-

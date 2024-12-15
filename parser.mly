@@ -7,6 +7,7 @@
     let not e = Eunop (Not, e) *)
 
   let block stmt = Sblock stmt
+  let expr e = Eblock [e]
 %}
 
 %token <int> CST
@@ -41,7 +42,6 @@
 /* Point d'entrée de la grammaire */
 
 %start <Ast.file> file
-
 %type <Ast.param_type> param_type
 %type <Ast.expr> expr
 %type <Ast.bexpr> bexpr
@@ -59,15 +59,15 @@
 
 True:
     | TRUE
-        { true }
+        { Econst true }
 
 False:
     | FALSE
-        { false }
+        { Econst false }
 
 ident:
     | IDENT
-        { IDENT }
+        { AIdent IDENT }
 
 file:
     decls = decl* EOF
@@ -82,13 +82,6 @@ decl:
 funbody:
     | LPAREN param* COMMA RPAREN annot? expr
         { (param, annot, expr) }
-;
-
-
-
-block:
-| BEGIN SEMI* LPAREN stmt SEMI+ RPAREN* END
-        { stmt }
 ;
 
 param:
@@ -107,46 +100,52 @@ result:
 ;
 
 param_type:
-| atype
+    | atype
         { atype }
     | atype ARROW result
         { (atype, result) }
     | LPAREN param_type* COMMA RPAREN ARROW result
-        { (param_type, result) }
+        { AArrow(param_type, result) }
 ;
 
 atype:
-| IDENT LPAREN LESS param_type = separated_list(COMMA, atype) GREATER RPAREN
-        { ATypeApp (IDENT, param_type) }
-    | LPAREN atype RPAREN
-        { ATypeParen atype }
+    | IDENT LPAREN LESS param_type* COMMA GREATER RPAREN?
+        { ATypeApp(IDENT, param_type) }
+    | LPAREN param_type RPAREN
+        { ATypeParen  param_type }
     | LPAREN RPAREN
         { AUnit }
 ;
 
 atom:
     | True
-        { Econst (true) }
+        { Econst true }
     | False
-        { Econst (false) }
+        { Econst false }
     | CST
-        { Econst (CST) }
+        { Econst (int_of_string CST) }
     | STRING
-        { Estring (STRING) }
+        { Estring STRING }
     | IDENT
-        { Evar (IDENT) }
+        { Evar IDENT }
     | LPAREN expr RPAREN
         { expr }
+    | atom LPAREN expr* COMMA RPAREN
+        { Ecall (atom, expr) }
     | atom DOT IDENT
         { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Ecall (atom, expr_list) }
     | atom FN funbody
         { Efun (funbody) }
     | atom block
         { Eblock (block) }
-    | LBRACKET expr_list = separated_list(COMMA, expr) RBRACKET
-        { Earray (expr_list) }
+    | LBRACKET expr* COMMA RBRACKET
+        { Earray (expr) }
+    | atom DOT IDENT
+        { Ecall (atom, IDENT, []) }
+    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
+        { Ecall (atom, expr_list @ [Efun funbody]) }
+    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
+        { Ecall (atom, expr_list @ [Eblock block]) }
 ;
 
 
@@ -196,20 +195,25 @@ bexpr:
         { Sreturn expr }
 ;
 
+block:
+| BEGIN SEMI* LPAREN stmt SEMI+ RPAREN* END
+        { stmt }
+;
+
 
 stmt:
     | bexpr
         { bexpr }
     | VAL IDENT EQ expr
         { Sval (IDENT, expr) }
-    | VAL IDENT EQEQ expr
-        { Svar (IDENT, expr) }
-    | IF bexpr THEN stmt
-        { Sif (bexpr, stmt, Sblock [], None) }
+    | VAR IDENT ASSIGN expr
+        {  Svar (IDENT, expr) }
+   | IF bexpr THEN stmt
+        { Sif (bexpr, stmt, [Sblock []], None) }
     | IF bexpr THEN stmt ELSE stmt
-        { Sif (bexpr, stmt, stmt, None) }
+        { Sif (bexpr, stmt, [stmt], None) }
     | IF bexpr RETURN expr
-        { Sif (bexpr, Ereturn expr, [], None) }
+        { Sif (bexpr, Sreturn expr, [], None) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
         { Scall (atom, expr_list) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
@@ -225,4 +229,11 @@ stmt:
 binop:
 | EQEQ | NOTEQ | LESSEQ | GREATEREQ | LESS | GREATER | PLUS | MINUS | TIMES | DIV | ANDAND | OROR | PLUSPLUS
     { binop }
+;
+
+elif:
+    | ELIF bexpr THEN stmt
+        { Sif (bexpr, stmt, [], None) }
+    | ELIF bexpr THEN stmt ELSE stmt
+        { Sif (bexpr, stmt, [stmt], None) }
 ;
