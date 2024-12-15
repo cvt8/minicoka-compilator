@@ -204,10 +204,10 @@ block:
 stmt: 
     | bexpr
         { bexpr } 
-   (*) | VAL IDENT EQ expr
+    | VAL IDENT EQ expr
         { Sval (expr) }
     | VAR IDENT ASSIGN expr
-        { Svar (expr) } *)
+        { Svar (expr) } 
     (*| IF bexpr THEN stmt
         { Sif (bexpr, stmt, [Sblock []]) }
     | IF bexpr THEN stmt ELSE stmt
