@@ -24,7 +24,7 @@ and expr =
   | Eblock of block
   | Eexpr of bexpr
 
-  
+
 and block =
     | Sblock of stmt list
 

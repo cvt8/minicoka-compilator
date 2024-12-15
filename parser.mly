@@ -186,12 +186,12 @@ bexpr:
         { Sassign (IDENT, bexpr) }
     | IF bexpr THEN expr ELSE expr
         { Sif (bexpr, expr, expr, []) }
-   | IF bexpr THEN expr elif_list = separated_list(ELIF, elif) ELSE expr
-        { Sif (bexpr, expr, elif_list, Some expr) } 
+   | IF bexpr THEN expr LPAREN ELIF bexpr THEN expr RPAREN* LPAREN ELSE expr RPAREN?
+        { Sif (bexpr, expr, [], None) }
     | IF bexpr RETURN expr
         { Sif (bexpr, Sreturn expr, [], None) }
-    | FUN funbody
-        { Sfun funbody } 
+    | FN funbody
+        { Sfn funbody } 
     | RETURN expr
         { Sreturn expr }
 ;
@@ -204,10 +204,10 @@ block:
 stmt: 
     | bexpr
         { bexpr } 
-    | VAL IDENT EQ expr
+   (*) | VAL IDENT EQ expr
         { Sval (expr) }
     | VAR IDENT ASSIGN expr
-        { Svar (expr) } 
+        { Svar (expr) } *)
     (*| IF bexpr THEN stmt
         { Sif (bexpr, stmt, [Sblock []]) }
     | IF bexpr THEN stmt ELSE stmt
