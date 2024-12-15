@@ -39,6 +39,18 @@ and expr =
   | Edot of expr * ident
   | EblockExpr of expr * block
 
+and bexpr =
+  | BAtom of atom
+  | BNot of bexpr
+  | BNeg of bexpr
+  | BBinop of binop * bexpr * bexpr
+  | BAssign of ident * bexpr
+  | BIf of bexpr * expr * expr option
+  | BIfElse of bexpr * expr * (bexpr * expr) list * expr option
+  | BIfReturn of bexpr * expr
+  | BFun of funbody
+  | BReturn of expr
+
 and atom =
   | AIdent of ident
   | AIntConst of int
@@ -63,7 +75,7 @@ and param_type =
   | PArrow of param_type * result
   | PList of param_type list
 
-  and atype =
+and atype =
     | ATypeApp of ident * param_type list
     | ATypeParen of atype
     | AUnit
@@ -77,15 +89,15 @@ and stmt =
   | Sreturn of expr
   | Scall of ident * expr list
   | Sblock of block
-  | Sparam of param  (* Add this line *)
+  | Sparam of param  
 
 
 and decl =
   | Dfun of ident * funbody
-  | Dparam of param  (* Add this line *)
+  | Dparam of param 
 
 and file = decl list
 
-and annot = Some of result
+and annot = result
 
 and result = ident list * param_type option
