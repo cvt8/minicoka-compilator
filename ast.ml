@@ -20,13 +20,17 @@ type binop =
   | And
   | Or
 
-type expr =
+and block =
+    | Bstmt of stmt
+    | Bbegin of stmt list
+
+and expr =
   | Econst of bool
   | Estring of string
   | Evar of ident
   | Eunop of unop * expr
   | Ebinop of binop * expr * expr
-  | Ecall of expr * ident * expr list
+  | Ecall of ident * expr list
   | Efun of funbody
   | Eblock of block
   | Earray of expr list
@@ -41,18 +45,28 @@ and atom =
   | AStringConst of string
   | ABoolConst of bool
   | AUnit
+  | AParen of expr option
+  | ACall of atom * expr list
+  | ADot of atom * ident
+  | AFun of funbody
+  | ABlock of block
+  | AArray of expr list
+  
+
+and funbody =
+    | Fbody of param list * annot option * expr
 
 and param = ident * param_type
 
 and param_type =
   | PBase of atype
-  | PArrow of atype * atype
+  | PArrow of param_type * result
+  | PList of param_type list
 
-and atype =
-  | AInt
-  | ABool
-  | AString
-  | AUnit
+  and atype =
+    | ATypeApp of ident * param_type list
+    | ATypeParen of atype
+    | AUnit
 
 and stmt =
   | Sval of ident * expr
@@ -63,12 +77,15 @@ and stmt =
   | Sreturn of expr
   | Scall of ident * expr list
   | Sblock of block
+  | Sparam of param  (* Add this line *)
 
-and funbody = param list * stmt list
-
-and block = stmt list
 
 and decl =
   | Dfun of ident * funbody
+  | Dparam of param  (* Add this line *)
 
 and file = decl list
+
+and annot = Some of result
+
+and result = ident list * param_type option

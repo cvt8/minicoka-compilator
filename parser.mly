@@ -42,13 +42,13 @@
 %type <Ast.expr> expr
 %type <Ast.bexpr> bexpr
 %type <Ast.atom> atom
-(*%type <Ast.stmt> stmt *)
-(*%type <Ast.block> block *)
+%type <Ast.stmt> stmt 
+%type <Ast.block> block 
 %type <Ast.binop> binop
-(*%type <Ast.funbody> funbody *)
+%type <Ast.funbody> funbody 
 %type <Ast.param> param
-(*%type <Ast.annot> annot *)
-(*%type <Ast.result> result *)
+%type <Ast.annot> annot 
+%type <Ast.result> result 
 %type <Ast.atype> atype
 
 %%
@@ -67,7 +67,7 @@ ident:
 
 file:
     decl* EOF
-    { $1 }
+    { decl }
 ;
 
 decl:
@@ -88,23 +88,23 @@ param:
 annot:
     | COLON result
         { Some result }
-    |
-        { None }
 ; 
 
 param_type:
     | atype
-        { ABase($1) }
-   (*) | atype ARROW result
-        { AArrow($1, $3) }
+        { PBase($1) }
+    | atype ARROW result
+        { PArrow(atype, result) }
     | LPAREN param_type_list = separated_list(COMMA, param_type) RPAREN ARROW result
-        { AArrow(AList(param_type_list), $5) } *)
+        { PArrow(PList(param_type_list), result) }
 ;
 
 result:
-    | LPAREN LESS idents = separated_list(COMMA, IDENT) GREATER RPAREN param_type?
-        { (idents, param_type) }
-; 
+    | LESS idents = separated_list(COMMA, IDENT) GREATER param_type
+        { (idents, Some(param_type)) }
+    | param_type
+        { ([], Some(param_type)) }
+;
 
 atype:
     | IDENT LPAREN LESS param_type* COMMA GREATER RPAREN?
@@ -196,18 +196,18 @@ bexpr:
         { Sreturn expr }
 ;
 
-(*block:
+block:
     | BEGIN SEMI* LPAREN stmt SEMI+ RPAREN* END
         { Sblock stmt }
-; *)
+;
 
-(*stmt: *)
-   (*) | bexpr
-        { bexpr } *)
-   (* | VAL IDENT EQ expr
-        { Sval (expr) } *)
-   (*) | VAR IDENT ASSIGN expr
-        { Svar (expr) } *)
+stmt: 
+    | bexpr
+        { bexpr } 
+    | VAL IDENT EQ expr
+        { Sval (expr) }
+    | VAR IDENT ASSIGN expr
+        { Svar (expr) } 
     (*| IF bexpr THEN stmt
         { Sif (bexpr, stmt, [Sblock []], None) }
     | IF bexpr THEN stmt ELSE stmt
