@@ -25,6 +25,7 @@
 
 /* Les priorités et associativités des tokens */
 
+(*)
 %left OROR
 %left ANDAND
 %left MINUS PLUS PLUSPLUS
@@ -32,7 +33,7 @@
 %nonassoc ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER
 %nonassoc TILDE BANG
 %nonassoc IF
-%nonassoc DOT BEGIN END FUN
+%nonassoc DOT BEGIN END FUN *)
 
 /* Point d'entrée de la grammaire */
 
@@ -63,10 +64,6 @@ True:
 False:
     | FALSE
         { Econst false }
-
-ident:
-    | IDENT
-        { AIdent IDENT }
 
 file:
     SEMI* LPAREN decl SEMI+ RPAREN* EOF
@@ -151,10 +148,10 @@ atom:
 
 expr:
     | block
-        { Eblock block } 
+        {Eblock(block) } 
     | bexpr
-        { bexpr }
-    | IF bexpr THEN expr ELSE expr
+        {Eexpr(bexpr)}
+    (*| IF bexpr THEN expr ELSE expr
         { Sif (bexpr, expr, expr, []) }
     | IF bexpr THEN expr elif_list = separated_list(ELIF, elif) ELSE expr
         { Sif (bexpr, expr, elif_list, Some expr) } 
@@ -173,7 +170,7 @@ expr:
     | atom DOT IDENT
         { Ecall (atom, IDENT, []) }
     | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
-        { Ecall (atom, expr_list @ [Efun funbody]) } 
+        { Ecall (atom, expr_list @ [Efun funbody]) }  *)
 ;
 
 bexpr:
@@ -201,7 +198,7 @@ bexpr:
 
 block:
     | BEGIN SEMI* LPAREN stmt SEMI+ RPAREN* END
-        { Sblock stmt }
+        { Sblock(stmt) }
 ;
 
 stmt: 

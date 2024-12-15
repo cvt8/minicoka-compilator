@@ -21,23 +21,12 @@ type binop =
   | Or
 
 and expr =
-  | Econst of bool
-  | Estring of string
-  | Evar of ident
-  | Eunop of unop * expr
-  | Ebinop of binop * expr * expr
-  | Ecall of ident * expr list
-  | Efun of funbody
   | Eblock of block
-  | Earray of expr list
-  | Eif of expr * block * block option
-  | Ereturn of expr
-  | Edot of expr * ident
-  | EblockExpr of expr * block
+  | Eexpr of bexpr
 
+  
 and block =
-    | Bstmt of stmt
-    | Bbegin of stmt list
+    | Sblock of stmt list
 
 and bexpr =
   | BAtom of atom
