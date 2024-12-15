@@ -1,3 +1,5 @@
+(*Typeur*)
+
 open Ast
 
 type effect =
@@ -6,7 +8,10 @@ type effect =
   | Console
   | Div_and_Console
 
-type value_type =
+  
+type calculation_type = value_type * effect
+
+and value_type =
   | Tunit
   | Tbool
   | Tint
@@ -15,9 +20,17 @@ type value_type =
   | Tmaybe of value_type
   | Tfunc of value_type list * calculation_type
 
-type calculation_type= value_type * effect
+let rec string_of_value_type = function
+  | Tunit -> "unit"
+  | Tbool -> "bool"
+  | Tint -> "int"
+  | Tstring -> "string"
+  | TList t -> "list of " ^ string_of_value_type t
+  | Tmaybe t -> "maybe " ^ string_of_value_type t
+  | Tfunc (args, (ret, eff)) ->
+      "(" ^ String.concat " * " (List.map string_of_value_type args) ^ ") -> " ^ string_of_value_type ret
 
-type expr =
+and expr =
   | EUnit
   | EBool of bool
   | EInt of int
