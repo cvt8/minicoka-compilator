@@ -52,7 +52,7 @@
 %type <Ast.annot> annot 
 %type <Ast.result> result 
 %type <Ast.atype> atype
-%type <Ast.elif> elif
+(*%type <Ast.elif> elif*)
 %%
 
 (* Les règles de la grammaire *)
@@ -76,13 +76,13 @@ decl:
 ;
 
 funbody:
-    | LPAREN param_list = separated_list(COMMA, param) RPAREN annot? expr
-        { (param_list, annot, expr) }
+    | LPAREN p=param* COMMA RPAREN a=annot? e=expr
+        { (p, a, e) }
 ;
 
 param:
-    | IDENT COLON param_type
-        { (IDENT, param_type) }
+    | IDENT COLON p=param_type
+        { (p) }
 ;
 
 annot:
@@ -91,19 +91,19 @@ annot:
 ; 
 
 param_type:
-    | atype
-        { PBase($1) }
-    | atype ARROW result
-        { PArrow(atype, result) }
-    | LPAREN param_type_list = separated_list(COMMA, param_type) RPAREN ARROW result
-        { PArrow(PList(param_type_list), result) }
+    | a=atype
+        { PBase(a) }
+    | a=atype ARROW r=result
+        { PArrow(a, r) }
+    | LPAREN p=param_type* COMMA RPAREN ARROW r=result
+        { PArrowpar(p, r) }
 ;
 
 result:
-    | LESS idents = separated_list(COMMA, IDENT) GREATER param_type
-        { (idents, Some(param_type)) }
-    | param_type
-        { ([], Some(param_type)) }
+    | LESS idents = separated_list(COMMA, IDENT) GREATER p=param_type
+        { (idents, Some(p)) }
+    | p=param_type
+        { ([], Some(p)) }
 ;
 
 atype:
@@ -202,12 +202,12 @@ block:
 ;
 
 stmt: 
-    | bexpr
-        { bexpr } 
-    | VAL IDENT EQ expr
-        { Sval (expr) }
-    | VAR IDENT ASSIGN expr
-        { Svar (expr) } 
+    | e=bexpr
+        { Sbexpr e } 
+    | VAL IDENT EQ e=expr
+        { Sval (e) }
+    | VAR IDENT ASSIGN e=expr
+        { Svar (e) } 
     (*| IF bexpr THEN stmt
         { Sif (bexpr, stmt, [Sblock []]) }
     | IF bexpr THEN stmt ELSE stmt
@@ -234,10 +234,15 @@ binop:
     | EQEQ | NOTEQ | LESSEQ | GREATEREQ | LESS | GREATER | PLUS | MINUS | TIMES | DIV | ANDAND | OROR | PLUSPLUS
         { binop }
 ;
-
-elif:
+(*elif:
     | ELSE IF bexpr THEN stmt
         { Sif (bexpr, stmt, [], None) }
     | ELSE IF bexpr THEN stmt ELSE stmt
         { Sif (bexpr, stmt, [stmt], None) }
-;
+    
+    expr 
+        IF ifexpr
+    ifexpr:
+        cond = expr THEN e1=expr ELIF ifexpr
+                                ELSE expr
+;*)
