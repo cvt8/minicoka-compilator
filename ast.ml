@@ -57,12 +57,12 @@ and atom =
 and funbody =
     | Fbody of param list * annot option * expr
 
-and param = ident * param_type
+and param = param_type
 
 and param_type =
   | PBase of atype
-  | PArrow of param_type * result
-  | PList of param_type list
+  | PArrow of atype * result
+  | PArrowpar of (param_type list) * result
 
 and atype =
     | ATypeApp of ident * param_type list
