@@ -22,7 +22,7 @@
 %token LBRACKET RBRACKET SEMI ARROW
 %token EQ
 %token TRUE FALSE
-
+%token MOD
 /* Les priorités et associativités des tokens */
 
 (*)

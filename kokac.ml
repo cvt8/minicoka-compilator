@@ -5,7 +5,7 @@ open Format
 open Lexing
 
 (* Option de compilation, pour s'arrêter à l'issue du parser *)
-let parse_only = ref false
+let parse_only = ref true
 
 (* Nom du fichier source *)
 let ifile = ref ""
@@ -34,7 +34,7 @@ let () =
 
   (* Ce fichier doit avoir l'extension .koka *)
   if not (Filename.check_suffix !ifile ".koka") then begin
-    eprintf "Le fichier d'entrée doit avoir l'extension .logo\n@?";
+    eprintf "Le fichier d'entrée doit avoir l'extension .koka\n@?";
     Arg.usage options usage;
     exit 1
   end;
@@ -51,13 +51,14 @@ let () =
        n'est détectée.
        La fonction Lexer.token est utilisée par Parser.prog pour obtenir
        le prochain token. *)
-    let p = Parser.prog Lexer.token buf in
+    let p = Parser.file Lexer.token buf in
     close_in f;
 
     (* On s'arrête ici si on ne veut faire que le parsing *)
     if !parse_only then exit 0;
 
-    Interp.prog p
+
+    Interp.exec_program p
   with
     | Lexer.Lexing_error c ->
 	(* Erreur lexicale. On récupère sa position absolue et
@@ -74,4 +75,4 @@ let () =
     | Interp.Error s->
 	(* Erreur pendant l'interprétation *)
 	eprintf "Erreur : %s@." s;
-	exit 1
+	exit 1 
