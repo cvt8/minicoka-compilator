@@ -26,13 +26,13 @@ and expr =
 
 
 and block =
-    | Sblock of stmt list
+    | Sblock of stmt
 
 and bexpr =
   | BAtom of atom
   | BNot of bexpr
   | BNeg of bexpr
-  | BBinop of binop * bexpr * bexpr
+  | BBinop of bexpr * binop * bexpr
   | BAssign of ident * bexpr
   | BIf of bexpr * expr * expr option
   | BIfElse of bexpr * expr * (bexpr * expr) list * expr option
@@ -44,7 +44,8 @@ and atom =
   | AIdent of ident
   | AIntConst of int
   | AStringConst of string
-  | ABoolConst of bool
+  | ATrue
+  | AFalse
   | AUnit
   | AParen of expr option
   | ACall of atom * expr list
@@ -84,9 +85,8 @@ and stmt =
 
 and decl =
   | Dfun of ident * funbody
-  | Dparam of param 
 
-and file = decl list
+and file = decl
 
 and annot = result
 

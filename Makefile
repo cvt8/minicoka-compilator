@@ -5,7 +5,7 @@ all: kokac.exe
 tests: kokac.exe
 	for f in tests/*.logo; do dune exec ./kokac.exe $$f; done
 
-minicoka.exe:
+kokac.exe:
 	dune build kokac.exe
 
 explain:

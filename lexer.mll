@@ -30,15 +30,15 @@
 
 (* Liste des lexèmes de fin de continuation *)
   let fin_continuation = [
-  '+'; '-'; '*'; '/'; '%';
-  "++"; "<"; "<="; ">" ; ">="; "=="; "!="; "&&"; "||"; '('; '{'; ','
+  "+"; "-"; "*"; "/"; "%";
+  "++"; "<"; "<="; ">" ; ">="; "=="; "!="; "&&"; "||"; "("; "{"; ","
   ]
 
 (* Liste des lexèmes de début de continuation *)
   let debut_continuation = [
-  '+'; '-'; '*'; '/'; '%';
+  "+"; "-"; "*"; "/"; "%";
   "++"; "<"; "<="; ">" ; ">="; "=="; "!="; "&&"; "||"; "then"; "else"; "elif";
-  ')'; '}'; ','; "->"; '{'; '='; '.'; ":="
+  ")"; "}"; ","; "->"; "{"; "="; "."; ":="
   ]
 
   (* Fonction pour vérifier si un lexème est une fin de continuation *)
@@ -49,7 +49,7 @@
   let is_debut_continuation lexeme =
     List.mem lexeme debut_continuation
 
-  (* Fonction pour gérer les retours à la ligne et l'indentation *)
+(* Fonction pour gérer les retours à la ligne et l'indentation *)
 
 let rec action_retour_chariot lexbuf last indentation_stack =
   let next = token lexbuf in  (* Lire le prochain lexème *)
