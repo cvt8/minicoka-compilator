@@ -168,5 +168,3 @@ let compile_program p ofile =
   X86_64.print_program fmt p;
   fprintf fmt "@?";
   close_out f
-
-This document was generated using caml2html 
