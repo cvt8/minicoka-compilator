@@ -2,5 +2,6 @@
     "ocaml.sandbox": {
         "kind": "opam",
         "switch": "default"
-    }
+    },
+    "makefile.configureOnOpen": false
 }
