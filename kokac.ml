@@ -5,6 +5,7 @@ open Format
 open Lexing
 open Parser
 open Arg
+open Typing
 
 (* Option de compilation, pour s'arrêter à l'issue du parser *)
 let parse_only = ref true
@@ -12,13 +13,18 @@ let type_only = ref true
 
 (* Nom du fichier source *)
 let ifile = ref ""
+let ofile = ref ""
+
+(* Fonction pour modifier le nom du fichier source *)
 
 let set_file f s = f := s
 
 (* Les options du compilateur que l'on affiche avec --help *)
 let options =
   ["--parse-only", Arg.Set parse_only,
-   "  Pour ne faire uniquement que la phase d'analyse syntaxique"]
+   "  Pour ne faire uniquement que la phase d'analyse syntaxique";
+   "--type-only", Arg.Set type_only,
+   "  Pour ne faire uniquement que la phase de typage"]
 
 let usage = "usage: koka [option] file.koka"
 
@@ -75,7 +81,19 @@ let () =
 	localisation (Lexing.lexeme_start_p buf);
 	eprintf "Erreur syntaxique@.";
 	exit 1
+    | Typing.Error s ->
+    (* Erreur pendant le typage *)
+    localisation (Lexing.lexeme_start_p buf);
+    eprintf "Erreur de typage : %s@." s;
+    exit 1
+
     | Interp.Error s->
 	(* Erreur pendant l'interprétation *)
 	eprintf "Erreur : %s@." s;
 	exit 1 
+
+
+  | e ->
+  (* Erreur du compilateur lui-même *)
+  eprintf "Erreur interne du compilateur : %s@." (Printexc.to_string e);
+  exit 2
