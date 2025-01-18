@@ -1,6 +1,2 @@
-
-// commencer par un fichier ne contenant que des commentaires
-
-// puis compléter ce fichier au fur et à mesure
-
-
+fun main()
+  println(3) // println output

@@ -93,14 +93,14 @@ let rec token lexbuf =
   ) else (
     (* Si la colonne c est inférieure ou égale à m, on doit dépiler la pile d'indentation *)
     while c < m do
-      Stack.pop indentation_stack;
-      let m = Stack.top indentation_stack in  (* Mettre à jour m avec la nouvelle valeur du sommet de la pile *)
+      (*Stack.pop indentation_stack;*)
+      ignore (Stack.top indentation_stack);  (* Mettre à jour m avec la nouvelle valeur du sommet de la pile *)
 
       (* Si next n'est pas RBRACE, on émet ; *)
       if next <> rbracket then ignore (emit semi) else ();
 
       (* Émettre } pour fermer le bloc *)
-      emit rbracket
+      ignore (emit rbracket)
     done;
 
     (* Si c est plus grand que m, échouer avec une erreur d'indentation *)

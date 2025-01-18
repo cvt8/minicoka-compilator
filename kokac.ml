@@ -3,9 +3,12 @@
 
 open Format
 open Lexing
+open Parser
+open Arg
 
 (* Option de compilation, pour s'arrêter à l'issue du parser *)
 let parse_only = ref true
+let type_only = ref true
 
 (* Nom du fichier source *)
 let ifile = ref ""
@@ -51,14 +54,15 @@ let () =
        n'est détectée.
        La fonction Lexer.token est utilisée par Parser.prog pour obtenir
        le prochain token. *)
-    let p = Parser.file Lexer.token buf in
-    close_in f;
 
+    (* let p = Parser.file Lexer.token buf in *)
+    close_in f;
+    print_string("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
     (* On s'arrête ici si on ne veut faire que le parsing *)
     if !parse_only then exit 0;
 
 
-    Interp.exec_program p
+    (* Interp.exec_program p *)
   with
     | Lexer.Lexing_error c ->
 	(* Erreur lexicale. On récupère sa position absolue et
