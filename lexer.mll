@@ -5,6 +5,7 @@
   open Parser
 
   exception Lexing_error of string
+  exception Indentation_error of string
 
   (* tables des mots-clés *)
   let kwd_tbl =
@@ -61,58 +62,44 @@ let emit token = token
 (* Fonction pour gérer les retours à la ligne et l'indentation *)
 
 let indentation_stack = Stack.create ()  (* Initialiser la pile d'indentation *)
+let () = Stack.push 0 indentation_stack  (* Empiler 0 dans la pile d'indentation *)
 
-(* Fonction pour gérer les retours à la ligne *)
+(* Fonction pour calculer l'indentation d'une ligne *)
+let rec count_spaces n lexbuf =
+  if Lexing.lexeme_char lexbuf 0 = ' ' then (
+    Lexing.new_line lexbuf;  (* Move to the next character *)
+    count_spaces (n + 1) lexbuf
+  ) else n
 
-let new_line lexbuf =
-  let pos = lexbuf.lex_curr_p in  (* Obtenir la position actuelle *)
-  lexbuf.lex_curr_p <- { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = pos.pos_cnum }  (* Mettre à jour la position *)
 
-(* Fonction pour émettre un lexème *)
-
-let rec token lexbuf =
-  let next = token lexbuf in  (* Lire le prochain lexème *)
-  let c = lexeme_start_p lexbuf in  (* Obtenir la colonne actuelle *)
-  let m = Stack.top indentation_stack in  (* Récupérer la colonne au sommet de la pile *)
-  let last = next in  (* Récupérer le dernier lexème émis *)
-
-  (* Si la colonne c est plus grande que m (nouveau bloc d'indentation) *)
-  if c > m then (
-    (* Si le dernier lexème n'est pas une fin de continuation et que next n'est pas un début de continuation, on émet { ; *)
-    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-      ignore (emit lbracket)
+  (* Gestion de l'indentation significative *)
+let handle_indentation current_indent =
+    let previous_indent = Stack.top indentation_stack in
+    if current_indent > previous_indent then (
+      Stack.push current_indent indentation_stack;
+      [INDENT]
+    )
+    else if current_indent < previous_indent then (
+      let rec dedent_tokens acc =
+        if Stack.is_empty indentation_stack then
+          raise (Indentation_error "Mauvais niveau d'indentation")
+        else if Stack.top indentation_stack > current_indent then (
+          ignore (Stack.pop indentation_stack);
+          dedent_tokens (DEDENT :: acc)
+        )
+        else acc
+      in
+      dedent_tokens []
+    )
     else
-      ();
+      []
 
-    (* Si le dernier lexème émis est {, empiler la colonne c dans la pile d'indentation *)
-    if last = lbracket then
-      Stack.push c indentation_stack;
+  (* Gestion des nouvelles lignes et de l'indentation *)
+let newline_and_indent lexbuf =
+    let current_indent = count_spaces 0 lexbuf in
+    let indent_tokens = handle_indentation current_indent in
+    NEWLINE :: indent_tokens
 
-    (* Émettre le lexème suivant *)
-    emit next
-  ) else (
-    (* Si la colonne c est inférieure ou égale à m, on doit dépiler la pile d'indentation *)
-    while c < m do
-      (*Stack.pop indentation_stack;*)
-      ignore (Stack.top indentation_stack);  (* Mettre à jour m avec la nouvelle valeur du sommet de la pile *)
-
-      (* Si next n'est pas RBRACE, on émet ; *)
-      if next <> rbracket then ignore (emit semi) else ();
-
-      (* Émettre } pour fermer le bloc *)
-      ignore (emit rbracket)
-    done;
-
-    (* Si c est plus grand que m, échouer avec une erreur d'indentation *)
-    if c > m then failwith "Indentation error";
-
-    (* Si last n'est pas une fin de continuation et next n'est pas un début de continuation, émettre ; *)
-    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-      ignore (emit semi);
-
-    (* Émettre le lexème suivant *)
-    emit next
-  )
 }
 
 (* Fonction pour émettre un lexème *)
@@ -132,6 +119,10 @@ rule token = parse
   | "//" [^ '\n']* '\n' { new_line lexbuf; token lexbuf }
   | space+                { token lexbuf }
   | ident as id           { id_or_kwd id }
+  | [' ' '\t']+   { token lexbuf } (* Ignorer les espaces/tabs entre les tokens *)
+  | '\n' { let spaces = count_spaces 0 lexbuf in
+           (* Use the space count for indentation logic *)
+           token lexbuf }
   | '+'                   { PLUS }
   | '-'                   { MINUS }
   | '*'                   { TIMES }
@@ -162,6 +153,7 @@ rule token = parse
   | '='                  { EQ }
   | "->"                 { ARROW }
   | "(*"                  { comment lexbuf }
+  | ['a'-'z' 'A'-'Z' '_' '0'-'9']+ as ident { IDENT ident }
   | integer as s          { CST (int_of_string s) }
   | string as s           { STRING s }
   | eof                   { EOF }

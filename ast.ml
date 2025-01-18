@@ -23,7 +23,11 @@ type binop =
 and expr =
   | Eblock of block
   | Eexpr of bexpr
-
+  | Call of expr * param list (* Appel d'une fonction, ex. e(e1, ..., en) *)
+  | Fn of  expr      (* Fonction anonyme avec un argument, ex. fn f *)
+  | Block of stmt list       (* Bloc de code, ex. { b } *)
+  | ECall of atom * expr list (* Appel d'une fonction, ex. f(e1, ..., en) *)
+  | ECallb of expr * expr list (* Appel d'une fonction, ex. e(e1, ..., en) *)
 
 and block =
     | Sblock of stmt
@@ -64,6 +68,7 @@ and param_type =
   | PBase of atype
   | PArrow of atype * result
   | PArrowpar of (param_type list) * result
+  | PFn of funbody
 
 and atype =
     | ATypeApp of ident * param_type list
@@ -74,13 +79,12 @@ and stmt =
   | Sbexpr of bexpr
   | Sval of expr
   | Svar of expr
-  (*| Sassign of ident * expr
-  | Sif of bexpr * block * block option
-  | Swhile of expr * block
-  | Sreturn of expr
-  | Scall of ident * expr list
-  | Sblock of block
-  | Sparam of param  *)
+  | Sifo of bexpr * expr * stmt list * stmt option (* if expr then block else stmt option *)
+  | Sif of bexpr * expr * stmt list (* if expr then block else stmt list *)
+  | SIfElse of bexpr * expr * stmt list * stmt option (* if expr then block else if expr then block else stmt option *)
+  | Sassign of string * expr  (* affectation *)
+  | Sreturn of expr          (* return *)
+  | Sblock of block          (* bloc de code *)
 
 
 and decl =

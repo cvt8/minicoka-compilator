@@ -12,6 +12,7 @@
 %token <string> DIGIT
 %token <string> OTHER
 %token <string> SPACE
+%token INDENT DEDENT NEWLINE
 %token COMMA BEGIN END
 %token LPAREN RPAREN
 %token PLUS MINUS TIMES DIV
@@ -25,7 +26,6 @@
 %token MOD
 /* Les priorités et associativités des tokens */
 
-(*)
 %left OROR
 %left ANDAND
 %left MINUS PLUS PLUSPLUS
@@ -33,7 +33,7 @@
 %nonassoc ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER
 %nonassoc TILDE BANG
 %nonassoc IF
-%nonassoc DOT BEGIN END FUN *)
+%nonassoc DOT BEGIN END FUN 
 
 /* Point d'entrée de la grammaire */
 
@@ -89,6 +89,8 @@ param_type:
         { PArrow(a, r) }
     | LPAREN p=param_type* COMMA RPAREN ARROW r=result
         { PArrowpar(p, r) }
+    | FN f=funbody
+        { PFn(f) }
 ;
 
 result:
@@ -139,26 +141,19 @@ expr:
         {Eblock(b) } 
     | b=bexpr
         {Eexpr(b)}
-    (*| IF bexpr THEN expr ELSE expr
-        { Sif (bexpr, expr, expr, []) }
-    | IF bexpr THEN expr elif_list = separated_list(ELIF, elif) ELSE expr
-        { Sif (bexpr, expr, elif_list, Some expr) } 
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, [], None) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Ecall (atom, expr_list) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
-        { Ecall (Ecall (atom, expr_list), IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
-        { Ecall (atom, expr_list @ [Eblock block]) } 
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
-        { Ecall (Ecall (atom, expr_list @ [Eblock block]), IDENT, []) }
-    | atom block
-        { Eblock block } 
-    | atom DOT IDENT
-        { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
-        { Ecall (atom, expr_list @ [Efun funbody]) }  *)
+    | e=expr DOT i=IDENT
+      { ECall(AIdent(i), [e]) } (* Désucrage en x(e) *)
+    | e=expr LPAREN a=param* RPAREN FN f=funbody
+      { Call(e, a @ [PFn(f)]) } (* Désucrage en e(e1, ..., en, fn f) *)
+    | e=expr FN f=expr
+      { match e with
+        | ECallb(_, _) -> ECallb(e, [Fn(f)]) (* Si c'est déjà un appel *)
+        | _ -> ECallb(e, [Fn(f)]) (* Sinon, transformer en appel *)
+      }
+    | e=expr LPAREN a=param* RPAREN BEGIN b=funbody END
+      { Call(e, a @ [PFn(b)]) } (* Désucrage en e(e1, ..., en, {b}) *)
+    | e=expr LPAREN a=param* RPAREN
+      { Call(e, a) } (* Désucrage en e(e1, ..., en) *)    
 ;
 
 bexpr:
@@ -196,26 +191,6 @@ stmt:
         { Sval (e) }
     | VAR IDENT ASSIGN e=expr
         { Svar (e) } 
-    (*| IF bexpr THEN stmt
-        { Sif (bexpr, stmt, [Sblock []]) }
-    | IF bexpr THEN stmt ELSE stmt
-        { Sif (bexpr, stmt, [stmt]) }
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, []) } *)
-    (*| atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Scall (atom, expr_list) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
-        { Scall (Ecall (atom, expr_list), IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
-        { Scall (atom, expr_list @ [Eblock block]) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
-        { Scall (Ecall (atom, expr_list @ [Eblock block]), IDENT, []) }
-    | atom block
-        { Sblock block }
-    | atom DOT IDENT
-        { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
-        { Scall (atom, expr_list @ [Efun funbody]) } *)
 ;
 
 binop:
