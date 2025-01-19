@@ -1,4 +1,4 @@
-(*Typeur*)
+(* typing.ml *)
 
 open Ast
 
@@ -55,7 +55,7 @@ let rec string_of_value_type = function
       "(" ^ String.concat " * " (List.map string_of_value_type args) ^ ") -> " ^ string_of_value_type ret
 
 (* Fonction pour combiner deux effets *)
-let combine_effect(eff,eff2) =
+let combine_effect(eff, eff2) =
   match eff with
   | Nothing -> eff2
   | Div -> match eff2 with
@@ -85,21 +85,21 @@ let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_ty
       let (t2, eff2) = type_expr ctx e2 in
       begin
         match op, t1, t2 with
-        | ("+" | "-" | "*" | "/" | "%"), Tint, Tint -> (Tint, combine_effect(eff1,eff2))
-        | ("<" | ">" | "<="| ">="), Tint, Tint -> (Tbool, combine_effect(eff1,eff2))
-        | ("&&"| "||"), Tbool, Tbool -> (Tbool, combine_effect(eff1,eff2))
-        | ("++"), Tstring, Tstring -> (Tstring, combine_effect(eff1,eff2))
-        | ("++"), TList t1, TList t2 when t1 = t2 -> (TList t1, combine_effect(eff1,eff2))
-        | ("=="| "!="), Tbool, Tbool -> (Tbool, combine_effect(eff1,eff2))
-        | ("=="| "!="), Tint, Tint -> (Tint, combine_effect(eff1,eff2))
-        | ("=="| "!="), Tstring, Tstring -> (Tstring, combine_effect(eff1,eff2))
+        | ("+" | "-" | "*" | "/" | "%"), Tint, Tint -> (Tint, combine_effect(eff1, eff2))
+        | ("<" | ">" | "<="| ">="), Tint, Tint -> (Tbool, combine_effect(eff1, eff2))
+        | ("&&"| "||"), Tbool, Tbool -> (Tbool, combine_effect(eff1, eff2))
+        | ("++"), Tstring, Tstring -> (Tstring, combine_effect(eff1, eff2))
+        | ("++"), TList t1, TList t2 when t1 = t2 -> (TList t1, combine_effect(eff1, eff2))
+        | ("=="| "!="), Tbool, Tbool -> (Tbool, combine_effect(eff1, eff2))
+        | ("=="| "!="), Tint, Tint -> (Tint, combine_effect(eff1, eff2))
+        | ("=="| "!="), Tstring, Tstring -> (Tstring, combine_effect(eff1, eff2))
         | _ -> failwith "Opération binaire non supportée ou types incompatibles"
       end
   | EIf (e1, e2, e3) ->
       let (t1, eff1) = type_expr ctx e1 in
       let (t2, eff2) = type_expr ctx e2 in
       let (t3, eff3) = type_expr ctx e3 in
-      if t1 = Tbool && t2 = t3 then (t2, combine_effect(combine_effect(eff1,eff2),eff3))
+      if t1 = Tbool && t2 = t3 then (t2, combine_effect(combine_effect(eff1, eff2), eff3))
       else failwith "Condition mal typée ou branches de types différents"
   | ELet (x, e1, e2) ->
       let (t1, eff1) = type_expr ctx e1 in
@@ -114,11 +114,11 @@ let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_ty
       end
   | EFunc (args, arg_types , body) ->
       let (t_body, eff_body) = type_expr (List.combine args arg_types @ ctx) body in
-      (Tfunc (arg_types, (t_body, eff_body)),Nothing)
+      (Tfunc (arg_types, (t_body, eff_body)), Nothing)
   | EApp (f, args) ->
       let (t_f, eff_f) = type_expr ctx f in
       begin match t_f with
-      | Tfunc (arg_types, (t_ret,eff_ret)) ->
+      | Tfunc (arg_types, (t_ret, eff_ret)) ->
           let arg_types2 = List.map (fun arg -> fst (type_expr ctx arg)) args in
           if arg_types = arg_types2 then (t_ret, List.fold_left (fun eff e -> combine_effect(snd (type_expr ctx e), eff)) eff_ret args)
           else failwith "Types des arguments de la fonction incorrects"
@@ -126,7 +126,7 @@ let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_ty
       end
   | EPrintln e1 -> let (t, eff) = type_expr ctx e1 in
     if List.mem t [Tunit; Tbool; Tint; Tstring] then
-      (Tunit, combine_effect(eff,Console))
+      (Tunit, combine_effect(eff, Console))
     else failwith "println : type non supporté"
   | EHead e1 ->
     let (t, eff) = type_expr ctx e1 in
@@ -144,32 +144,32 @@ let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_ty
     let (t1, eff1) = type_expr ctx e1 in
     let (t2, eff2) = type_expr ctx e2 in
     (match t1 with
-      | Tmaybe t3 -> if t1 = t2 then (t1, combine_effect(eff1,eff2))
+      | Tmaybe t3 -> if t1 = t2 then (t1, combine_effect(eff1, eff2))
         else failwith "default : types incompatibles"
       | _ -> failwith "default : types incompatibles")
   | EFor (e1, e2, e3) ->
     let (t1, eff1) = type_expr ctx e1 in
     let (t2, eff2) = type_expr ctx e2 in
     let (t3, eff3) = type_expr ctx e3 in
-    if t1=t2 && t1=Tint then
+    if t1 = t2 && t1 = Tint then
       (match t3 with
-        | Tfunc ([Tint],(Tunit,eff4)) -> (Tunit, combine_effect(eff4,combine_effect(eff3,combine_effect(eff1,eff2))))
-        | _ -> failwith "for : mauvais troiseme argument")
+        | Tfunc ([Tint], (Tunit, eff4)) -> (Tunit, combine_effect(eff4, combine_effect(eff3, combine_effect(eff1, eff2))))
+        | _ -> failwith "for : mauvais troisieme argument")
     else failwith "for : premier et deuxieme argument doit être un entier"
   | ERepeat (e1, e2) ->
     let (t1, eff1) = type_expr ctx e1 in
     let (t2, eff2) = type_expr ctx e2 in
     if t1 = Tint then
       (match t2 with
-        | Tfunc ([],(Tunit,eff3)) -> (Tunit, combine_effect(eff3,combine_effect(eff1,eff2)))
+        | Tfunc ([], (Tunit, eff3)) -> (Tunit, combine_effect(eff3, combine_effect(eff1, eff2)))
         | _ -> failwith "repeat : mauvais deuxieme argument")
     else failwith "repeat : premier argument doit être un entier"
   | EWhile (e1, e2) ->
     let (t1, eff1) = type_expr ctx e1 in
     let (t2, eff2) = type_expr ctx e2 in
     (match t1 with
-        | Tfunc ([],(Tbool,eff3)) -> (match t2 with
-          | Tfunc ([],(Tunit,eff4)) -> (Tunit, Div)
+        | Tfunc ([], (Tbool, eff3)) -> (match t2 with
+          | Tfunc ([], (Tunit, eff4)) -> (Tunit, Div)
           | _ -> failwith "while : mauvais deuxieme argument")
         | _ -> failwith "while : mauvais premier argument")
 

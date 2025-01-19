@@ -99,6 +99,8 @@ param_type:
                 { PArrowpar(p, r) }
         | FN f=funbody
                 { PFn(f) }
+        | LESS idents = separated_list(COMMA, IDENT) GREATER p=param_type
+            { PAnnot(idents, p) }
 ;
 
 /* Règle pour le résultat d'une fonction */
@@ -150,9 +152,11 @@ atom:
 /* Règle pour les expressions */
 expr:
         | b=block
-                {Eblock(b) } 
+            {Eblock(b) } 
+        | a=atom LPAREN RPAREN
+            { AeCall(a, []) } (* Désucrage en x() *)
         | b=bexpr
-                {Eexpr(b)}
+            {Eexpr(b)}
         | e=expr DOT i=IDENT
             { ECall(AIdent(i), [e]) } (* Désucrage en x(e) *)
         | e=expr LPAREN a=param* RPAREN FN f=funbody
@@ -194,8 +198,10 @@ bexpr:
 
 /* Règle pour les blocs */
 block:
-        | BEGIN SEMI* LPAREN s=stmt SEMI+ RPAREN* END
-                { Sblock(s) }
+    | BEGIN SEMI* LPAREN s=stmt SEMI+ RPAREN* END
+        { Sblock(s) }
+    | BEGIN s=stmt END
+        { Sblock(s) }
 ;
 
 /* Règle pour les instructions */

@@ -28,6 +28,7 @@ and expr =
   | Block of stmt list       (* Bloc de code, ex. { b } *)
   | ECall of atom * expr list (* Appel d'une fonction, ex. f(e1, ..., en) *)
   | ECallb of expr * expr list (* Appel d'une fonction, ex. e(e1, ..., en) *)
+  | AeCall of atom * expr list (* Appel d'une fonction, ex. f(e1, ..., en) *)
 
 and block =
     | Sblock of stmt
@@ -69,6 +70,7 @@ and param_type =
   | PArrow of atype * result
   | PArrowpar of (param_type list) * result
   | PFn of funbody
+  | PAnnot of ident list * param_type
 
 and atype =
     | ATypeApp of ident * param_type list
