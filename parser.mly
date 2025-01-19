@@ -1,7 +1,7 @@
 /* Analyseur syntaxique pour mini-Koka */
 
 %{
-    open Ast 
+    open Ast
     open Lexing
 %}
 
@@ -34,7 +34,7 @@
 %nonassoc ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER
 %nonassoc TILDE BANG
 %nonassoc IF
-%nonassoc DOT BEGIN END FUN 
+%nonassoc DOT BEGIN END FUN
 
 /* Point d'entrée de la grammaire */
 %start file
@@ -45,13 +45,13 @@
 %type <Ast.expr> expr
 %type <Ast.bexpr> bexpr
 %type <Ast.atom> atom
-%type <Ast.stmt> stmt 
-%type <Ast.block> block 
+%type <Ast.stmt> stmt
+%type <Ast.block> block
 %type <Ast.binop> binop
-%type <Ast.funbody> funbody 
+%type <Ast.funbody> funbody
 %type <Ast.param> param
-%type <Ast.annot> annot 
-%type <Ast.result> result 
+%type <Ast.annot> annot
+%type <Ast.result> result
 %type <Ast.atype> atype
 (*%type <Ast.elif> elif*)
 
@@ -79,15 +79,15 @@ funbody:
 
 /* Règle pour un paramètre de fonction */
 param:
-        | IDENT COLON p=param_type
-                { (p) }
+        | i=IDENT COLON p=param_type
+                { Pdots(i, p) }
 ;
 
 /* Règle pour une annotation */
 annot:
         | COLON r=result
                 { r }
-; 
+;
 
 /* Règle pour le type de paramètre */
 param_type:
@@ -98,7 +98,7 @@ param_type:
         | LPAREN p=param_type* COMMA RPAREN ARROW r=result
                 { PArrowpar(p, r) }
         | FN f=funbody
-                { PFn(f) }
+                { PAFn(f) }
         | LESS idents = separated_list(COMMA, IDENT) GREATER p=param_type
             { PAnnot(idents, p) }
 ;
@@ -152,7 +152,7 @@ atom:
 /* Règle pour les expressions */
 expr:
         | b=block
-            {Eblock(b) } 
+            {Eblock(b) }
         | a=atom LPAREN RPAREN
             { AeCall(a, []) } (* Désucrage en x() *)
         | b=bexpr
@@ -169,7 +169,7 @@ expr:
         | e=expr LPAREN a=param* RPAREN BEGIN b=funbody END
             { Call(e, a @ [PFn(b)]) } (* Désucrage en e(e1, ..., en, {b}) *)
         | e=expr LPAREN a=param* RPAREN
-            { Call(e, a) } (* Désucrage en e(e1, ..., en) *)    
+            { Call(e, a) } (* Désucrage en e(e1, ..., en) *)
 ;
 
 /* Règle pour les expressions booléennes */
@@ -202,43 +202,47 @@ block:
         { Sblock(s) }
     | BEGIN s=stmt END
         { Sblock(s) }
+    | BEGIN s=stmt* END
+        { Sblocks(s) }
 ;
 
 /* Règle pour les instructions */
-stmt: 
+stmt:
         | e=bexpr
-                { Sbexpr e } 
+                { Sbexpr e }
         | VAL IDENT EQ e=expr
                 { Sval (e) }
         | VAR IDENT ASSIGN e=expr
-                { Svar (e) } 
+                { Svar (e) }
+        | e=expr
+                { Sexpr(e) }
 ;
 
 /* Règle pour les opérateurs binaires */
 binop:
-        | EQEQ 
+        | EQEQ
                 { Eq }
-        | NOTEQ 
+        | NOTEQ
                 { Neq }
-        | LESSEQ 
+        | LESSEQ
                 { Le }
-        | GREATEREQ 
+        | GREATEREQ
                 { Ge }
-        | LESS 
+        | LESS
                 { Lt }
-        | GREATER 
+        | GREATER
                 { Gt }
-        | PLUS 
+        | PLUS
                 { Add }
-        | MINUS 
+        | MINUS
                 { Sub }
-        | TIMES 
+        | TIMES
                 { Mul }
-        | DIV 
+        | DIV
                 { Div }
-        | ANDAND 
+        | ANDAND
                 { And }
-        | OROR 
+        | OROR
                 { Or }
         | PLUSPLUS
                 { Add }

@@ -32,6 +32,7 @@ and expr =
 
 and block =
     | Sblock of stmt
+    | Sblocks of stmt list
 
 and bexpr =
   | BAtom of atom
@@ -63,14 +64,16 @@ and atom =
 and funbody =
     | Fbody of param list * annot option * expr
 
-and param = param_type
+and param = 
+  | Pdots of ident * param_type
+  | PFn of funbody
 
 and param_type =
   | PBase of atype
   | PArrow of atype * result
   | PArrowpar of (param_type list) * result
-  | PFn of funbody
   | PAnnot of ident list * param_type
+  | PAFn of funbody
 
 and atype =
     | ATypeApp of ident * param_type list
@@ -87,6 +90,7 @@ and stmt =
   | Sassign of string * expr  (* affectation *)
   | Sreturn of expr          (* return *)
   | Sblock of block          (* bloc de code *)
+  | Sexpr of expr
 
 
 and decl =
@@ -98,7 +102,7 @@ and annot = result
 
 and result = ident list * param_type option
 
-
+(*
 (* Pretty-printing *)
 open Format
 
@@ -217,4 +221,4 @@ and pp_stmt_list fmt stmts =
 
 and pp_option pp fmt = function
   | None -> ()
-  | Some x -> pp fmt x
+  | Some x -> pp fmt x *)
