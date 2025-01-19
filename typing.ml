@@ -2,45 +2,48 @@
 
 open Ast
 
+(* Définition des effets possibles d'une expression *)
 type effect =
-  | Nothing
-  | Div
-  | Console
-  | Div_and_Console
+  | Nothing (* Pas d'effet *)
+  | Div (* Division par zéro possible *)
+  | Console (* Effet console, comme println *)
+  | Div_and_Console (* Combinaison des effets Division et Console *)
 
-  
+(* Type de calcul, composé d'un type de valeur et d'un effet *)
 type calculation_type = value_type * effect
 
+(* Définition des types de valeurs possibles *)
 and value_type =
-  | Tunit
-  | Tbool
-  | Tint
-  | Tstring
-  | TList of value_type
-  | Tmaybe of value_type
-  | Tfunc of value_type list * calculation_type
+  | Tunit (* Type unité *)
+  | Tbool (* Type booléen *)
+  | Tint (* Type entier *)
+  | Tstring (* Type chaîne de caractères *)
+  | TList of value_type (* Type liste paramétré par le type des éléments *)
+  | Tmaybe of value_type (* Type optionnel paramétré par le type de la valeur *)
+  | Tfunc of value_type list * calculation_type (* Type fonction avec liste de types d'arguments et type de retour *)
 
+(* Définition des expressions possibles *)
 and expr =
-    | EUnit 
-    | EBool of bool
-    | EInt of int
-    | EString of string
-    | EVar of string
-    | EBinop of string * expr * expr 
-    | EIf of expr * expr * expr 
-    | ELet of string * expr * expr
-    | EList of expr list
-    | EFunc of string list * value_type list * expr
-    | EApp of expr * expr list
-    | EPrintln of expr
-    | EHead of expr
-    | ETail of expr
-    | EDefault of expr * expr
-    | EFor of expr * expr * expr
-    | ERepeat of expr * expr
-    | EWhile of expr * expr
+    | EUnit (* Expression unité *)
+    | EBool of bool (* Expression booléenne *)
+    | EInt of int (* Expression entière *)
+    | EString of string (* Expression chaîne de caractères *)
+    | EVar of string (* Expression variable *)
+    | EBinop of string * expr * expr (* Expression binaire avec opérateur et deux sous-expressions *)
+    | EIf of expr * expr * expr (* Expression conditionnelle if *)
+    | ELet of string * expr * expr (* Expression let *)
+    | EList of expr list (* Expression liste *)
+    | EFunc of string list * value_type list * expr (* Expression fonctionnelle *)
+    | EApp of expr * expr list (* Expression d'application de fonction *)
+    | EPrintln of expr (* Expression println *)
+    | EHead of expr (* Expression head pour liste *)
+    | ETail of expr (* Expression tail pour liste *)
+    | EDefault of expr * expr (* Expression default pour valeurs optionnelles *)
+    | EFor of expr * expr * expr (* Expression for *)
+    | ERepeat of expr * expr (* Expression repeat *)
+    | EWhile of expr * expr (* Expression while *)
 
-
+(* Fonction pour convertir un type de valeur en chaîne de caractères *)
 let rec string_of_value_type = function
   | Tunit -> "unit"
   | Tbool -> "bool"
@@ -51,6 +54,7 @@ let rec string_of_value_type = function
   | Tfunc (args, (ret, eff)) ->
       "(" ^ String.concat " * " (List.map string_of_value_type args) ^ ") -> " ^ string_of_value_type ret
 
+(* Fonction pour combiner deux effets *)
 let combine_effect(eff,eff2) =
   match eff with
   | Nothing -> eff2
@@ -66,6 +70,7 @@ let combine_effect(eff,eff2) =
     | Div_and_Console -> Div_and_Console
   | Div_and_Console -> Div_and_Console
 
+(* Fonction principale de typage des expressions *)
 let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_type =
   match e with
   | EUnit -> (Tunit, Nothing)
@@ -168,8 +173,8 @@ let rec type_expr (ctx : (string * value_type) list) (e : expr) : calculation_ty
           | _ -> failwith "while : mauvais deuxieme argument")
         | _ -> failwith "while : mauvais premier argument")
 
-
+(* Exception pour les erreurs de typage *)
 exception Error of string
 
+(* Fonction pour lever une exception d'erreur *)
 let error s = raise (Error s)
-  
