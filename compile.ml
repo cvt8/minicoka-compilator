@@ -26,6 +26,10 @@ let rec convert_expr = function
   |Ast.Eblock b -> Typing.EBlock b
   |Ast.Eexpr e -> Typing.EExpr e
 
+let rec convert_bexpr = function
+  |Ast.Eexpr e -> Typing.EExpr e
+
+(* Fonction pour allouer les variables d'une expression *)
 let rec alloc_expr = function
   | EUnit -> EUnit
   | EBool b -> EBool b
@@ -48,10 +52,13 @@ let rec alloc_expr = function
   | ERepeat (e1, e2) -> ERepeat (alloc_expr e1, alloc_expr e2)
   | EWhile (e1, e2) -> EWhile (alloc_expr e1, alloc_expr e2)
 
-(* Fonction pour allouer les variables d'une expression *)
+(* Fonction pour allouer les variables d'une déclaration *)
+let rec alloc_decl = function
+  | Ast.Eexpr e -> alloc_expr (convert_bexpr e)
+  | _ -> failwith "Unsupported declaration type"
 
-let alloc (p: Ast.file) = List.map (fun d -> alloc_expr d) p
-
+(* Fonction pour allouer les variables d'un programme *)
+let alloc (p: Ast.file) = List.map alloc_decl p
 
 (******************************************************************************)
 (* phase 2 : production de code *)
