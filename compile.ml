@@ -26,9 +26,6 @@ let rec convert_expr = function
   |Ast.Eblock b -> Typing.EBlock b
   |Ast.Eexpr e -> Typing.EExpr e
 
-let rec convert_bexpr = function
-  |Ast.Eexpr e -> Typing.EExpr e
-
 (* Fonction pour allouer les variables d'une expression *)
 let rec alloc_expr = function
   | EUnit -> EUnit
@@ -54,7 +51,7 @@ let rec alloc_expr = function
 
 (* Fonction pour allouer les variables d'une déclaration *)
 let rec alloc_decl = function
-  | Ast.Eexpr e -> alloc_expr (convert_bexpr e)
+  | Ast.Eexpr e -> alloc_expr (convert_expr e)
   | _ -> failwith "Unsupported declaration type"
 
 (* Fonction pour allouer les variables d'un programme *)

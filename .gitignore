@@ -8,6 +8,8 @@
 *.cmxs
 *.cmxa
 
+Templates/
+
 # Vscode
 .vscode/
 
