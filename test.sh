@@ -10,6 +10,8 @@ score=0
 max=0
 verbose=0
 
+cd tests # on se place dans le répertoire tests 
+
 
 echo "Test de $2"
 

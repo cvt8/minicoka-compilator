@@ -8,7 +8,7 @@ open Arg
 open Typing
 
 (* Option de compilation, pour s'arrêter à l'issue du parser *)
-let parse_only = ref true
+let parse_only = ref false
 let type_only = ref true
 
 (* Nom du fichier source *)
@@ -24,7 +24,9 @@ let options =
   ["--parse-only", Arg.Set parse_only,
    "  Pour ne faire uniquement que la phase d'analyse syntaxique";
    "--type-only", Arg.Set type_only,
-   "  Pour ne faire uniquement que la phase de typage"]
+   "  Pour ne faire uniquement que la phase de typage"
+   "-o", Arg.String (set_file ofile), 
+   "<file>  Pour indiquer le mom du fichier de sortie"]
 
 let usage = "usage: koka [option] file.koka"
 
@@ -48,6 +50,10 @@ let () =
     exit 1
   end;
 
+(* Par défaut, le fichier cible a le même nom que le fichier source, 
+     seule l'extension change *)
+  if !ofile="" then ofile := Filename.chop_suffix !ifile ".exp" ^ ".s";
+
   (* Ouverture du fichier source en lecture *)
   let f = open_in !ifile in
 
@@ -65,9 +71,16 @@ let () =
     close_in f;
     (* On s'arrête ici si on ne veut faire que le parsing *)
     if !parse_only then exit 0;
+    let p = Typing.type_program p in
+    close_in f;
+    (* On s'arrête ici si on ne veut faire que le typage *)
+    if !type_only then exit 0;
 
 
-    Interp.exec_program p 
+     (* Compilation de l'arbre de syntaxe abstraite p. Le code machine 
+       résultant de cette transformation doit être écrit dans le fichier 
+       cible ofile. *)
+      Compile.compile_program p !ofile
   with
     | Lexer.Lexing_error c ->
 	(* Erreur lexicale. On récupère sa position absolue et
@@ -91,6 +104,11 @@ let () =
 	(* Erreur pendant l'interprétation *)
 	eprintf "Erreur : %s@." s;
 	exit 1 
+    | Compile.VarUndef s-> 
+    (* Erreur d'utilisation de variable pendant la compilation *)
+    eprintf 
+      "Erreur de compilation: la variable %s n'est pas definie@." s;
+    exit 1
 
 
   | e ->
