@@ -7,5 +7,4 @@
 (executable
  (name kokac)
  (promote (until-clean))
- (flags ())
- (libraries graphics))
+ (flags ()))
