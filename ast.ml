@@ -1,96 +1,50 @@
-(* Syntaxe abstraite pour mini-Koka *)
-
 type ident = string
 
-type unop =
-  | Not
-  | Neg
-
 type binop =
-  | Add
-  | Sub
-  | Mul
-  | Div
-  | Eq
-  | Neq
-  | Lt
-  | Gt
-  | Le
-  | Ge
-  | And
-  | Or
+  | Add | Sub | Mul | Div | Mod | Concat
+  | Lt | Le | Gt | Ge | Eq | Neq | And | Or
 
-and expr =
-  | Eblock of block
-  | Eexpr of bexpr
+type unop = Neg
 
-
-and block =
-    | Sblock of stmt
-
-and bexpr =
-  | BAtom of atom
-  | BNot of bexpr
-  | BNeg of bexpr
-  | BBinop of bexpr * binop * bexpr
-  | BAssign of ident * bexpr
-  | BIf of bexpr * expr * expr option
-  | BIfElse of bexpr * expr * (bexpr * expr) list * expr option
-  | BIfReturn of bexpr * expr
-  | BFun of funbody
-  | BReturn of expr
+type expr =
+  | Block of stmt list
+  | Atom of atom
+  | UnOp of unop * expr
+  | BinOp of expr * binop * expr
+  | Assign of ident * expr
+  | If of expr * expr * (expr * expr) list * expr option
+  | IfReturn of expr * expr
+  | Lambda of funbody
+  | Return of expr
 
 and atom =
-  | AIdent of ident
-  | AIntConst of int
-  | AStringConst of string
-  | ATrue
-  | AFalse
-  | AUnit
-  | AParen of expr option
-  | ACall of atom * expr list
-  | ADot of atom * ident
-  | AFun of funbody
-  | ABlock of block
-  | AArray of expr list
-  
-
-and funbody =
-    | Fbody of param list * annot option * expr
-
-and param = param_type
-
-and param_type =
-  | PBase of atype
-  | PArrow of atype * result
-  | PArrowpar of (param_type list) * result
-
-and atype =
-    | ATypeApp of ident * param_type list
-    | ATypeParen of atype
-    | AUnit
+  | Bool of bool
+  | Int of int
+  | String of string
+  | Unit
+  | Var of ident
+  | Call of atom * expr list
+  | Dot of atom * ident
+  | Fun of atom * funbody
+  | BlockApp of atom * stmt list
+  | ListLit of expr list
 
 and stmt =
-  | Sbexpr of bexpr
-  | Sval of expr
-  | Svar of expr
-  (*| Sassign of ident * expr
-  | Sif of bexpr * block * block option
-  | Swhile of expr * block
-  | Sreturn of expr
-  | Scall of ident * expr list
-  | Sblock of block
-  | Sparam of param  *)
+  | ExprStmt of expr
+  | ValDecl of ident * expr
+  | VarDecl of ident * expr
 
+and funbody = FunBody of param list * result option * expr
 
-and decl =
-  | Dfun of ident * funbody
+and param = Param of ident * type_
 
-and file = decl
+and result = Result of ident list * type_
 
-and annot = result
+and type_ =
+  | NamedType of ident * type_ list
+  | FunType of type_ list * result
+  | ListType
 
-and result = ident list * param_type option
+type decl = FunDecl of ident * funbody
 
-and elif = 
-  | Elif of bexpr * expr * block option
+type file = File of decl list

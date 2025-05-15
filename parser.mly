@@ -1,260 +1,124 @@
-/* Analyseur syntaxique pour mini-Koka */
-
 %{
-  open Ast 
-  open Lexing
+  open Ast
 %}
 
-%token <int> CST
-%token <string> IDENT
+%token <string> ID
+%token <int> INT
 %token <string> STRING
-%token <string> UPPER
-%token <string> DIGIT
-%token <string> OTHER
-%token <string> SPACE
-%token COMMA BEGIN END
-%token LPAREN RPAREN
-%token PLUS MINUS TIMES DIV
-%token IF ELSE REPEAT ELIF THEN FN VAL RETURN VAR
+%token TRUE FALSE UNIT
+%token FUN FN VAL VAR IF THEN ELIF ELSE RETURN
+%token PLUS MINUS STAR SLASH PERCENT PLUSPLUS
+%token LT LE GT GE EQ NEQ AND OR
+%token LPAREN RPAREN LBRACK RBRACK LBRACE RBRACE
+%token COMMA SEMI COLON COLONEQ ARROW DOT
 %token EOF
-%token COLON
-%token TILDE BANG OROR ANDAND PLUSPLUS ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER DOT FUN
-%token LBRACKET RBRACKET SEMI ARROW
-%token EQ
-%token TRUE FALSE
 
-/* Les priorités et associativités des tokens */
+%start <file> file
 
-(*)
-%left OROR
-%left ANDAND
-%left MINUS PLUS PLUSPLUS
-%left TIMES DIV
-%nonassoc ASSIGN EQEQ NOTEQ LESSEQ GREATEREQ LESS GREATER
-%nonassoc TILDE BANG
 %nonassoc IF
-%nonassoc DOT BEGIN END FUN *)
+%left OR
+%left AND
+%nonassoc EQ NEQ LT LE GT GE
+%left PLUS MINUS PLUSPLUS
+%left STAR SLASH PERCENT
+%nonassoc UMINUS FN_POSTFIX DOT_ID
 
-/* Point d'entrée de la grammaire */
-
-%start file
-
-%type <Ast.param_type> param_type
-%type <Ast.file> file
-%type <Ast.expr> expr
-%type <Ast.bexpr> bexpr
-%type <Ast.atom> atom
-%type <Ast.stmt> stmt 
-%type <Ast.block> block 
-%type <Ast.binop> binop
-%type <Ast.funbody> funbody 
-%type <Ast.param> param
-%type <Ast.annot> annot 
-%type <Ast.result> result 
-%type <Ast.atype> atype
-(*%type <Ast.elif> elif*)
 %%
 
-(* Les règles de la grammaire *)
-
 file:
-    SEMI* LPAREN d=decl SEMI+ RPAREN* EOF
-        { d }
-;
+  | SEMI* decls = separated_list(SEMI, decl) EOF { File decls }
 
 decl:
-    | FUN i=IDENT f=funbody
-        { Dfun(i, f) }
-;
+  | FUN id = ID fb = funbody { FunDecl (id, fb) }
 
 funbody:
-    | LPAREN p=param* COMMA RPAREN a=annot? e=expr
-        { Fbody(p, a, e) }
-;
+  | LPAREN params = separated_list(COMMA, param) RPAREN annot = option(annot) e = expr
+    { FunBody (params, annot, e) }
 
 param:
-    | IDENT COLON p=param_type
-        { (p) }
-;
+  | id = ID COLON t = type_ { Param (id, t) }
 
 annot:
-    | COLON r=result
-        { r }
-; 
-
-param_type:
-    | a=atype
-        { PBase(a) }
-    | a=atype ARROW r=result
-        { PArrow(a, r) }
-    | LPAREN p=param_type* COMMA RPAREN ARROW r=result
-        { PArrowpar(p, r) }
-;
+  | COLON r = result { r }
 
 result:
-    | LESS idents = separated_list(COMMA, IDENT) GREATER p=param_type
-        { (idents, Some(p)) }
-    | p=param_type
-        { ([], Some(p)) }
-;
+  | t = type_ { Result ([], t) }
+  | LPAREN ids = separated_list(COMMA, ID) RPAREN t = type_ { Result (ids, t) }
+
+type_:
+  | t = atype { t }
+  | t1 = atype ARROW r = result { FunType ([t1], r) }
+  | LPAREN ts = separated_nonempty_list(COMMA, type_) RPAREN ARROW r = result
+    { FunType (ts, r) }
 
 atype:
-    | i=IDENT LPAREN LESS p=param_type* COMMA GREATER RPAREN?
-        { ATypeApp(i, p) }
-    | LPAREN a=atype RPAREN
-        { ATypeParen a }
-    | LPAREN RPAREN
-        { AUnit }
-;
+  | id = ID { NamedType (id, []) }
+  | id = ID LPAREN ts = separated_list(COMMA, type_) RPAREN { NamedType (id, ts) }
+  | LPAREN t = type_ RPAREN { t }
+  | LBRACK RBRACK { ListType }
 
 atom:
-    | i=IDENT
-        { AIdent i }
-    | c=CST
-        { AIntConst (c) }
-    | s=STRING
-        { AStringConst s }
-    | TRUE
-        { ATrue }
-    | FALSE
-        { AFalse }
-    | LPAREN e=expr RPAREN
-        { AParen (Some e) }
-    | LPAREN RPAREN
-        { AUnit }
-    | a=atom DOT i=IDENT
-        { ADot (a, i) }
-    | a=atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { ACall (a, expr_list) }
-    | FN f=funbody
-        { AFun f }
-    | BEGIN b=block END
-        { ABlock b }
-    | LBRACKET expr_list = separated_list(COMMA, expr) RBRACKET
-        { AArray expr_list }
-;
+  | TRUE { Bool true }
+  | FALSE { Bool false }
+  | n = INT { Int n }
+  | s = STRING { String s }
+  | UNIT { Unit }
+  | id = ID { Var id }
+  | LPAREN e = bexpr RPAREN 
+  { Atom e }
+  | a = atom LPAREN args = separated_list(COMMA, expr) RPAREN 
+  { Call (a, args) }
+  | a = atom DOT id = ID { Dot (a, id) } %prec DOT_ID
+  | a = atom FN fb = funbody { Fun (a, fb) } %prec FN_POSTFIX
+  | a = atom b = block { BlockApp (a, b) }
+  | LBRACK es = separated_list(COMMA, expr) RBRACK { ListLit es }
 
 expr:
-    | b=block
-        {Eblock(b) } 
-    | b=bexpr
-        {Eexpr(b)}
-    (*| IF bexpr THEN expr ELSE expr
-        { Sif (bexpr, expr, expr, []) }
-    | IF bexpr THEN expr elif_list = separated_list(ELIF, elif) ELSE expr
-        { Sif (bexpr, expr, elif_list, Some expr) } 
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, [], None) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Ecall (atom, expr_list) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
-        { Ecall (Ecall (atom, expr_list), IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
-        { Ecall (atom, expr_list @ [Eblock block]) } 
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
-        { Ecall (Ecall (atom, expr_list @ [Eblock block]), IDENT, []) }
-    | atom block
-        { Eblock block } 
-    | atom DOT IDENT
-        { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
-        { Ecall (atom, expr_list @ [Efun funbody]) }  *)
-;
+  | b = block { Block b }
+  | e = bexpr { e }
 
 bexpr:
-    | a=atom
-        { BAtom(a) }
-    | TILDE b=bexpr
-        { BNot(b) }
-    | BANG b=bexpr
-        { BNeg(b) }
-    | b=bexpr c=binop d=bexpr
-        { BBinop (b, c, d) }
-    | i=IDENT ASSIGN b=bexpr
-        { BAssign (i, b) }
-    | IF b=bexpr THEN e=expr ELSE f=expr
-        { BIf (b, e, Some f) }
-    | IF b=bexpr THEN e=expr LPAREN ELIF c=bexpr THEN f=expr RPAREN* LPAREN ELSE g=expr RPAREN?
-        { BIfElse (b, e, [(c, f)], Some g) }
-    | IF b=bexpr RETURN e=expr
-        { BIfReturn (b, e) }
-    | FN f=funbody
-        { BFun f }
-    | RETURN e=expr
-        { BReturn e }
-;
+  | a = atom { Atom a }
+  | MINUS e = bexpr %prec UMINUS { UnOp (Neg, e) }
+  | e1 = bexpr op = binop e2 = bexpr { BinOp (e1, op, e2) }
+  | id = ID COLONEQ e = bexpr { Assign (id, e) }
+  | IF c = bexpr THEN t = expr elifs = list(elif_clause) el = option(else_clause)
+    { If (c, t, elifs, el) }
+  | IF c = bexpr RETURN e = expr { IfReturn (c, e) }
+  | FN fb = funbody { Lambda fb }
+  | RETURN e = expr { Return e }
+
+elif_clause:
+  | ELIF c = bexpr THEN e = expr { (c, e) }
+
+else_clause:
+  | ELSE e = expr { e }
 
 block:
-    | BEGIN SEMI* LPAREN s=stmt SEMI+ RPAREN* END
-        { Sblock(s) }
-;
+  | LBRACE SEMI* stmts = separated_nonempty_list(SEMI, stmt) RBRACE { stmts }
 
-stmt: 
-    | e=bexpr
-        { Sbexpr e } 
-    | VAL IDENT EQ e=expr
-        { Sval (e) }
-    | VAR IDENT ASSIGN e=expr
-        { Svar (e) } 
-    (*| IF bexpr THEN stmt
-        { Sif (bexpr, stmt, [Sblock []]) }
-    | IF bexpr THEN stmt ELSE stmt
-        { Sif (bexpr, stmt, [stmt]) }
-    | IF bexpr RETURN expr
-        { Sif (bexpr, Sreturn expr, []) } *)
-    (*| atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN
-        { Scall (atom, expr_list) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT
-        { Scall (Ecall (atom, expr_list), IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN block
-        { Scall (atom, expr_list @ [Eblock block]) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN DOT IDENT block
-        { Scall (Ecall (atom, expr_list @ [Eblock block]), IDENT, []) }
-    | atom block
-        { Sblock block }
-    | atom DOT IDENT
-        { Ecall (atom, IDENT, []) }
-    | atom LPAREN expr_list = separated_list(COMMA, expr) RPAREN FN funbody
-        { Scall (atom, expr_list @ [Efun funbody]) } *)
-;
+stmt:
+  | e = bexpr { ExprStmt e }
+  | VAL id = ID EQ e = expr { ValDecl (id, e) }
+  | VAR id = ID COLONEQ e = expr { VarDecl (id, e) }
 
 binop:
-    | EQEQ 
-        { Eq }
-    | NOTEQ 
-        { Neq }
-    | LESSEQ 
-        { Le }
-    | GREATEREQ 
-        { Ge }
-    | LESS 
-        { Lt }
-    | GREATER 
-        { Gt }
-    | PLUS 
-        { Add }
-    | MINUS 
-        { Sub }
-    | TIMES 
-        { Mul }
-    | DIV 
-        { Div }
-    | ANDAND 
-        { And }
-    | OROR 
-        { Or }
-    | PLUSPLUS
-        { Add }
-;
-(*elif:
-    | ELSE IF bexpr THEN stmt
-        { Sif (bexpr, stmt, [], None) }
-    | ELSE IF bexpr THEN stmt ELSE stmt
-        { Sif (bexpr, stmt, [stmt], None) }
-    
-    expr 
-        IF ifexpr
-    ifexpr:
-        cond = expr THEN e1=expr ELIF ifexpr
-                                ELSE expr
-;*)
+  | PLUS { Add }
+  | MINUS { Sub }
+  | STAR { Mul }
+  | SLASH { Div }
+  | PERCENT { Mod }
+  | PLUSPLUS { Concat }
+  | LT { Lt }
+  | LE { Le }
+  | GT { Gt }
+  | GE { Ge }
+  | EQ { Eq }
+  | NEQ { Neq }
+  | AND { And }
+  | OR { Or }
+
+%inline
+separated_nonempty_list(sep, X):
+  | x = X { [x] }
+  | x = X sep xs = separated_nonempty_list(sep, X) { x :: xs }

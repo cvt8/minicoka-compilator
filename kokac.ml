@@ -1,77 +1,43 @@
-
-(* Fichier principal de l'interprète mini-Koka *)
-
-open Format
 open Lexing
+open Ast
+open Typing
 
-(* Option de compilation, pour s'arrêter à l'issue du parser *)
-let parse_only = ref false
-
-(* Nom du fichier source *)
-let ifile = ref ""
-
-let set_file f s = f := s
-
-(* Les options du compilateur que l'on affiche avec --help *)
-let options =
-  ["--parse-only", Arg.Set parse_only,
-   "  Pour ne faire uniquement que la phase d'analyse syntaxique"]
-
-let usage = "usage: koka [option] file.koka"
-
-(* localise une erreur en indiquant la ligne et la colonne *)
-let localisation pos =
-  let l = pos.pos_lnum in
-  let c = pos.pos_cnum - pos.pos_bol + 1 in
-  eprintf "File \"%s\", line %d, characters %d-%d:\n" !ifile l (c-1) c
+let report_error file msg pos_start pos_end =
+  Printf.printf "File \"%s\", line %d, characters %d-%d:\n%s\n" file
+    pos_start.pos_lnum (pos_start.pos_cnum - pos_start.pos_bol)
+    (pos_end.pos_cnum - pos_end.pos_bol) msg;
+  exit 1
 
 let () =
-  (* Parsing de la ligne de commande *)
-  Arg.parse options (set_file ifile) usage;
-
-  (* On vérifie que le nom du fichier source a bien été indiqué *)
-  if !ifile="" then begin eprintf "Aucun fichier à compiler\n@?"; exit 1 end;
-
-  (* Ce fichier doit avoir l'extension .koka *)
-  if not (Filename.check_suffix !ifile ".koka") then begin
-    eprintf "Le fichier d'entrée doit avoir l'extension .logo\n@?";
-    Arg.usage options usage;
-    exit 1
-  end;
-
-  (* Ouverture du fichier source en lecture *)
-  let f = open_in !ifile in
-
-  (* Création d'un tampon d'analyse lexicale *)
-  let buf = Lexing.from_channel f in
-
+  let usage = "Usage: kokac [--parse-only | --type-only] <file.koka>" in
+  let file = ref "" in
+  let parse_only = ref false in
+  let type_only = ref false in
+  Arg.parse
+    [("--parse-only", Arg.Set parse_only, "Stop after parsing");
+     ("--type-only", Arg.Set type_only, "Stop after type checking")]
+    (fun f -> if !file = "" then file := f else raise (Failure "multiple input files"))
+    usage;
+  if !file = "" then (print_endline usage; exit 1);
+  if Filename.extension !file <> ".koka" then
+    (print_endline "Input file must have .koka extension"; exit 1);
   try
-    (* Parsing: la fonction  Parser.prog transforme le tampon lexical en un
-       arbre de syntaxe abstraite si aucune erreur (lexicale ou syntaxique)
-       n'est détectée.
-       La fonction Lexer.token est utilisée par Parser.prog pour obtenir
-       le prochain token. *)
-    let p = Parser.prog Lexer.token buf in
-    close_in f;
-
-    (* On s'arrête ici si on ne veut faire que le parsing *)
+    let ic = open_in !file in
+    let lexbuf = Lexing.from_channel ic in
+    lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = !file };
+    let ast = try Parser.file Lexer.token lexbuf
+              with
+              | Lexer.LexicalError (msg, p1, p2) -> report_error !file ("lexical error: " ^ msg) p1 p2
+              | Parser.Error -> report_error !file "syntax error" lexbuf.lex_start_p lexbuf.lex_curr_p
+    in
+    close_in ic;
     if !parse_only then exit 0;
-
-    Interp.prog p
-  with
-    | Lexer.Lexing_error c ->
-	(* Erreur lexicale. On récupère sa position absolue et
-	   on la convertit en numéro de ligne *)
-	localisation (Lexing.lexeme_start_p buf);
-	eprintf "Erreur lexicale: %s@." c;
-	exit 1
-    | Parser.Error ->
-	(* Erreur syntaxique. On récupère sa position absolue et on la
-	   convertit en numéro de ligne *)
-	localisation (Lexing.lexeme_start_p buf);
-	eprintf "Erreur syntaxique@.";
-	exit 1
-    | Interp.Error s->
-	(* Erreur pendant l'interprétation *)
-	eprintf "Erreur : %s@." s;
-	exit 1
+    try
+      let _ = type_file ast in
+      if !type_only then exit 0;
+      (* Code generation would go here for Part 2 *)
+      exit 0
+    with TypeError (msg, p1, p2) ->
+      report_error !file ("type error: " ^ msg) p1 p2
+  with Sys_error msg ->
+    Printf.printf "Error: %s\n" msg; exit 2

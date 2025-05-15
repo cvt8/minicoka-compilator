@@ -1,167 +1,162 @@
-(* Analyseur lexical pour Petit Koka *)
-
-(* Analyseur lexical pour Petit Koka *)
-
 {
-  open Lexing
   open Parser
+  open Lexing
 
-  exception Lexing_error of string
+  (* Stack to track indentation levels *)
+  let indent_stack = ref [0]
 
-  (* tables des mots-clés *)
-  let kwd_tbl =
-    ["if", IF;
-     "elif", ELIF;
-     "else", ELSE;
-     "fn", FN;
-     "fun", FUN;
-     "return", RETURN;
-     "then", THEN;
-     "val", VAL;
-     "var", VAR;
-    ]
+  (* Last emitted token for continuation checks *)
+  let last_token = ref NONE
 
-  let id_or_kwd =
-    let h = Hashtbl.create 17 in
-    List.iter (fun (s,t) -> Hashtbl.add h s t) kwd_tbl;
-    fun s ->
-      let s = String.lowercase_ascii s in (* la casse n'est pas significative *)
-      try Hashtbl.find h s with _ -> IDENT s
+  (* Queue for tokens to be emitted *)
+  let token_queue = Queue.create ()
 
-(* Liste des lexèmes de fin de continuation *)
-  let fin_continuation = [
-  "+"; "-"; "*"; "/"; "%";
-  "++"; "<"; "<="; ">" ; ">="; "=="; "!="; "&&"; "||"; "("; "{"; ","
-  ]
+  (* Helper to check if a token is a continuation end *)
+  let is_continuation_end = function
+    | PLUS | MINUS | STAR | SLASH | PERCENT | PLUSPLUS | LT | LE | GT | GE | EQ | NEQ | AND | OR | LPAREN | COMMA -> true
+    | _ -> false
 
-(* Liste des lexèmes de début de continuation *)
-  let debut_continuation = [
-  "+"; "-"; "*"; "/"; "%";
-  "++"; "<"; "<="; ">" ; ">="; "=="; "!="; "&&"; "||"; "then"; "else"; "elif";
-  ")"; "}"; ","; "->"; "{"; "="; "."; ":="
-  ]
+  (* Helper to check if a token is a continuation start *)
+  let is_continuation_start = function
+    | PLUS | MINUS | STAR | SLASH | PERCENT | PLUSPLUS | LT | LE | GT | GE | EQ | NEQ | AND | OR | THEN | ELSE | ELIF | RPAREN | RBRACE | SEMI | ARROW | LBRACE | COLONEQ -> true
+    | _ -> false
 
-  (* Fonction pour vérifier si un lexème est une fin de continuation *)
-  let is_fin_continuation lexeme =
-    List.mem lexeme fin_continuation
+  (* Emit a token to the queue *)
+  let emit_token tok = Queue.add tok token_queue
 
-  (* Fonction pour vérifier si un lexème est un début de continuation *)
-  let is_debut_continuation lexeme =
-    List.mem lexeme debut_continuation
+  (* Process a newline and adjust indentation *)
+  let process_newline lexbuf =
+    let pos = lexbuf.lex_curr_p in
+    let col = pos.pos_cnum - pos.pos_bol in
+    let top = List.hd !indent_stack in
+    if col > top then begin
+      if not (is_continuation_end !last_token) && not (is_continuation_start (lookahead lexbuf)) then
+        emit_token LBRACE;
+      emit_token (lookahead lexbuf);
+      indent_stack := col :: !indent_stack
+    end else begin
+      while col < top do
+        indent_stack := List.tl !indent_stack;
+        if (lookahead lexbuf) <> RBRACE then emit_token SEMI;
+        emit_token RBRACE;
+        let top = List.hd !indent_stack in
+        if col > top then failwith "Invalid indentation"
+      done;
+      if col = top && not (is_continuation_end !last_token) && not (is_continuation_start (lookahead lexbuf)) then
+        emit_token SEMI;
+      emit_token (lookahead lexbuf)
+    end
 
-(* Fonction pour gérer les retours à la ligne et l'indentation *)
+  (* Lookahead to the next non-whitespace, non-comment token *)
+  let rec lookahead lexbuf =
+    let tok = lex_token lexbuf in
+    match tok with
+    | SPACE | NEWLINE | COMMENT _ -> lookahead lexbuf
+    | _ -> tok
 
-let rec action_retour_chariot lexbuf last indentation_stack =
-  let next = token lexbuf in  (* Lire le prochain lexème *)
-  let c = lexeme_start_p lexbuf in  (* Obtenir la colonne actuelle *)
-  let m = Stack.top indentation_stack in  (* Récupérer la colonne au sommet de la pile *)
-
-  (* Si la colonne c est plus grande que m (nouveau bloc d'indentation) *)
-  if c > m then (
-    (* Si le dernier lexème n'est pas une fin de continuation et que next n'est pas un début de continuation, on émet { ; *)
-    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-      emit LBRACE;
-
-    (* Si le dernier lexème émis est {, empiler la colonne c dans la pile d'indentation *)
-    if last = LBRACE then
-      Stack.push c indentation_stack;
-
-    (* Émettre le lexème suivant *)
-    emit next
-  ) else (
-    (* Si la colonne c est inférieure ou égale à m, on doit dépiler la pile d'indentation *)
-    while c < m do
-      Stack.pop indentation_stack;
-      let m = Stack.top indentation_stack in  (* Mettre à jour m avec la nouvelle valeur du sommet de la pile *)
-
-      (* Si next n'est pas RBRACE, on émet ; *)
-      if next <> RBRACE then emit SEMI;
-
-      (* Émettre } pour fermer le bloc *)
-      emit RBRACE
-    done;
-
-    (* Si c est plus grand que m, échouer avec une erreur d'indentation *)
-    if c > m then failwith "Indentation error";
-
-    (* Si last n'est pas une fin de continuation et next n'est pas un début de continuation, émettre ; *)
-    if not (List.mem last fin_continuation) && not (List.mem next debut_continuation) then
-      emit SEMI;
-
-    (* Émettre le lexème suivant *)
-    emit next
-  )
+  (* Main token reading function *)
+  let next_token lexbuf =
+    if not (Queue.is_empty token_queue) then
+      let tok = Queue.take token_queue in
+      last_token := tok;
+      tok
+    else
+      let tok = lex_token lexbuf in
+      last_token := tok;
+      tok
 }
 
-(* Fonction pour émettre un lexème *)
-let lower = ['a'-'z'] | '_'
-let upper = ['A'-'Z']
 let digit = ['0'-'9']
+let lower = ['a'-'z'] | '-'
+let upper = ['A'-'Z']
 let other = lower | upper | digit | '-'
-let ident = lower (other | "'")* ('-' (lower | digit) (other | "'")*)*
-let space = [' ' '\t' '\r']
-let integer = '-'? ('0' | ['1'-'9'] digit*)
-let string = "\"" ([^ '"' '\\' '\n'] | "\\\"" | "\\\\" | "\\t" | "\\n")* "\""
+let ident = lower other*
 
-
-(*let indentation_stack = Stack.create () *)
-
-rule token = parse
-  | "//" [^ '\n']* '\n' { new_line lexbuf; token lexbuf }
-  | space+                { token lexbuf }
-  | '\n'                 { action_retour_chariot (); token lexbuf }
-  | ident as id           { id_or_kwd id }
-  | '+'                   { PLUS }
-  | '-'                   { MINUS }
-  | '*'                   { TIMES }
-  | '.'                   { DOT }
-  | '/'                   { DIV }
-  | ':'                   { COLON }
-  | '('                   { LPAREN }
-  | ')'                   { RPAREN }
-  | '{'                   { BEGIN }
-  | '}'                   { END }
-  | '['                   { LBRACKET }
-  | ']'                   { RBRACKET }
-  | ','                   { COMMA }
-  | ';'                   { SEMI }
-  | "++"                 { PLUSPLUS }
-  | '%'                   { MOD }
-  | "<="                 { LESSEQ }
-  | ">="                 { GREATEREQ }
-  | "=="                 { EQEQ }
-  | ":="                 { ASSIGN }
-  | "!="                 { NOTEQ }
-  | "<"                  { LESS }
-  | ">"                  { GREATER }
-  | "&&"                 { ANDAND }
-  | "||"                 { OROR }
-  | '~'                  { TILDE }
-  | '!'                  { BANG }
-  | '='                  { EQ }
-  | "then"               { THEN }
-  | "True"               { TRUE }
-  | "False"              { FALSE }
-  | "elif"               { ELIF }
-  | "else"               { ELSE }
-  | "fn"                 { FN }
-  | "fun"                { FUN }
-  | "return"             { RETURN }
-  | "val"                { VAL }
-  | "var"                { VAR }
-  | "->"                 { ARROW }
-  | "(*"                  { comment lexbuf }
-  | integer as s          { CST (int_of_string s) }
-  | string as s           { STRING s }
-  | lower as c            { LOWER (Char.escaped c) }
-  | upper as c            { UPPER (Char.escaped c) }
-  | digit as c            { DIGIT (Char.escaped c) }
-  | other as c            { OTHER (Char.escaped c) }
-  | eof                   { EOF }
-  | _ as c                { raise (Lexing_error ("illegal character: " ^ String.make 1 c)) }
+rule lex_token = parse
+  | [' ' '\t']+ { SPACE }
+  | '\n'        { process_newline lexbuf; next_token lexbuf }
+  | "/*"        { comment lexbuf }
+  | "//"        { line_comment lexbuf }
+  | ident as id {
+      match id with
+      | "elif"   -> ELIF
+      | "else"   -> ELSE
+      | "fn"     -> FN
+      | "fun"    -> FUN
+      | "if"     -> IF
+      | "return" -> RETURN
+      | "then"   -> THEN
+      | "val"    -> VAL
+      | "var"    -> VAR
+      | _        -> if String.contains id '-' then
+                      check_hyphen id
+                    else
+                      ID id
+    }
+  | "-"? (['0'] | ['1'-'9'] digit*) as n { INT (int_of_string n) }
+  | "\""        { string (Buffer.create 17) lexbuf }
+  | "+"         { PLUS }
+  | "-"         { MINUS }
+  | "*"         { STAR }
+  | "/"         { SLASH }
+  | "%"         { PERCENT }
+  | "++"        { PLUSPLUS }
+  | "<"         { LT }
+  | "<="        { LE }
+  | ">"         { GT }
+  | ">="        { GE }
+  | "=="        { EQ }
+  | "!="        { NEQ }
+  | "&&"        { AND }
+  | "||"        { OR }
+  | "("         { LPAREN }
+  | ")"         { RPAREN }
+  | "["         { LBRACK }
+  | "]"         { RBRACK }
+  | "{"         { LBRACE }
+  | "}"         { RBRACE }
+  | ","         { COMMA }
+  | ";"         { SEMI }
+  | ":"         { COLON }
+  | ":="        { COLONEQ }
+  | "->"        { ARROW }
+  | "True"      { TRUE }
+  | "False"     { FALSE }
+  | "()"        { UNIT }
+  | eof         { process_newline lexbuf; EOF }
+  | _           { error lexbuf "Illegal character" }
 
 and comment = parse
-  | "*)"                  { token lexbuf }
-  | [^ '*']+              { comment lexbuf }
-  | '*' [^ '/']*          { comment lexbuf }
-  | eof                   { raise (Lexing_error "unterminated comment") }
+  | "*/"        { COMMENT "*/" }
+  | _           { comment lexbuf }
+  | eof         { error lexbuf "Unterminated comment" }
+
+and line_comment = parse
+  | '\n'        { NEWLINE }
+  | _           { line_comment lexbuf }
+  | eof         { EOF }
+
+and string buf = parse
+  | "\""        { STRING (Buffer.contents buf) }
+  | "\\\""      { Buffer.add_char buf '"'; string buf lexbuf }
+  | "\\\\"      { Buffer.add_char buf '\\'; string buf lexbuf }
+  | "\\t"       { Buffer.add_char buf '\t'; string buf lexbuf }
+  | "\\n"       { Buffer.add_char buf '\n'; string buf lexbuf }
+  | _ as c      { Buffer.add_char buf c; string buf lexbuf }
+  | eof         { error lexbuf "Unterminated string" }
+
+{
+  let check_hyphen id =
+    let valid = ref true in
+    for i = 1 to String.length id - 1 do
+      if id.[i] = '-' then
+        if i = String.length id - 1 || not (Char.is_letter id.[i-1] || Char.is_digit id.[i-1]) || not (Char.is_letter id.[i+1]) then
+          valid := false
+    done;
+    if !valid then ID id else error lexbuf "Invalid hyphen in identifier"
+
+  let error lexbuf msg =
+    let pos = lexbuf.lex_curr_p in
+    Printf.fprintf stderr "File \"%s\", line %d, characters %d-%d:\n%s\n" pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol) (pos.pos_cnum - pos.pos_bol + 1) msg;
+    exit 1
+}
